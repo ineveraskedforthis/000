@@ -1,0 +1,1 @@
+tsc src/main.ts src/draw.ts src/init_buffers.ts --lib ES2022,dom --outDir "js"
