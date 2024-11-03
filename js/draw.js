@@ -1,4 +1,4 @@
-export function drawScene(gl, programInfo, programAuraInfo, buffers, game_state, explosions, bosses, player, camera_x, camera_y, zoom_mod, textures, bg_texture) {
+export function drawScene(gl, programInfo, programAuraInfo, buffers, game_state, explosions, enemies, bosses, player, player_aura_range, camera_x, camera_y, time, zoom_mod, textures, bg_texture) {
     let canvas = gl.canvas;
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clearDepth(1.0);
@@ -51,12 +51,13 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, game_state,
     }
     gl.useProgram(programAuraInfo.program);
     gl.uniform1i(programAuraInfo.uniformLocations.style, 0);
+    gl.uniform1f(programAuraInfo.uniformLocations.time, time);
     gl.uniformMatrix4fv(programAuraInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
     gl.uniformMatrix4fv(programAuraInfo.uniformLocations.modelViewMatrix, false, modelViewMatrix);
-    {
+    if (player.aura_active) {
         let player_object = game_state[player.index];
         gl.uniform2f(programAuraInfo.uniformLocations.position, player_object.x, player_object.y);
-        gl.uniform2f(programAuraInfo.uniformLocations.size, player.aura_range, player.aura_range);
+        gl.uniform2f(programAuraInfo.uniformLocations.size, player_aura_range, player_aura_range);
         gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, 0);
         const vertexCount = 6;
         const offset = 0;
@@ -94,6 +95,25 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, game_state,
         gl.uniform2f(programInfo.uniformLocations.size, item.w, item.h);
         const vertexCount = 6;
         const offset = 0;
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
+    for (const item of enemies) {
+        if (item.dead)
+            continue;
+        const object = game_state[item.index];
+        const vertexCount = 6;
+        const offset = 0;
+        gl.bindTexture(gl.TEXTURE_2D, textures[8001]);
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h);
+        gl.uniform2f(programInfo.uniformLocations.position, object.x, object.y + 20);
+        gl.uniform2f(programInfo.uniformLocations.size, 10, 3);
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+        gl.bindTexture(gl.TEXTURE_2D, textures[8000]);
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h * item.hp / item.max_hp);
+        gl.uniform2f(programInfo.uniformLocations.position, object.x, object.y + 20);
+        gl.uniform2f(programInfo.uniformLocations.size, 10 * item.hp / item.max_hp, 3);
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
 }

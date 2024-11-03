@@ -1,4 +1,4 @@
-import { DungeonMaster, Explosion, GameObject, Mage } from "./types";
+import { Creation, DungeonMaster, Explosion, GameObject, Mage } from "./types";
 
 export function drawScene(
     gl: WebGLRenderingContext,
@@ -7,10 +7,12 @@ export function drawScene(
     buffers,
     game_state: GameObject[],
     explosions: Explosion[],
+    enemies: Creation[],
     bosses: DungeonMaster[],
-    player: Mage,
+    player: Mage, player_aura_range: number,
     camera_x: number,
     camera_y: number,
+    time: number,
     zoom_mod: number,
     textures: WebGLTexture[],
     bg_texture: WebGLTexture
@@ -94,6 +96,7 @@ export function drawScene(
 
     gl.useProgram(programAuraInfo.program);
     gl.uniform1i(programAuraInfo.uniformLocations.style, 0);
+    gl.uniform1f(programAuraInfo.uniformLocations.time, time);
 
     gl.uniformMatrix4fv(
         programAuraInfo.uniformLocations.projectionMatrix,
@@ -106,10 +109,10 @@ export function drawScene(
         modelViewMatrix,
     );
 
-    {
+    if (player.aura_active) {
         let player_object = game_state[player.index]
         gl.uniform2f(programAuraInfo.uniformLocations.position, player_object.x, player_object.y);
-        gl.uniform2f(programAuraInfo.uniformLocations.size, player.aura_range, player.aura_range);
+        gl.uniform2f(programAuraInfo.uniformLocations.size, player_aura_range, player_aura_range);
         gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, 0)
 
         const vertexCount = 6;
@@ -158,7 +161,26 @@ export function drawScene(
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
 
+    for (const item of enemies) {
+        if (item.dead) continue
+        const object = game_state[item.index]
+        const vertexCount = 6;
+        const offset = 0;
 
+        gl.bindTexture(gl.TEXTURE_2D, textures[8001])
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h);
+        gl.uniform2f(programInfo.uniformLocations.position, object.x, object.y + 20);
+        gl.uniform2f(programInfo.uniformLocations.size, 10, 3);
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+
+        gl.bindTexture(gl.TEXTURE_2D, textures[8000])
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h * item.hp / item.max_hp);
+        gl.uniform2f(programInfo.uniformLocations.position, object.x, object.y + 20);
+        gl.uniform2f(programInfo.uniformLocations.size, 10 * item.hp / item.max_hp, 3);
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
 }
 
     // Tell WebGL how to pull out the positions from the position

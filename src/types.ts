@@ -10,6 +10,7 @@ export interface Mage {
 
     aura_damage: number,
     aura_range: number
+    aura_active: boolean
 
     index: number,
     cast_speed: number
@@ -39,10 +40,13 @@ export interface ControlState {
     right_pressed: boolean
     up_pressed: boolean
     down_pressed: boolean
+    aura_pressed: boolean
 }
 
 export interface Creation {
     hp: number
+    max_hp: number
+
     index: number
     dead: boolean
     target_x: number

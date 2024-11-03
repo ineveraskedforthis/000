@@ -21,8 +21,8 @@ const projectiles = [];
 const explosions = [];
 const breaches = [];
 const bosses = [];
-let souls = 200;
-let owned_souls = 1000;
+let souls = 0;
+let owed_souls = 0;
 let loan_payment_ratio = 0.25;
 let cashback_rate = 0.05;
 // milliseconds
@@ -64,7 +64,8 @@ function init_dungeon() {
     let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME);
     let body = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY);
     let enemy_body = {
-        hp: 1000,
+        hp: 10000,
+        max_hp: 10000,
         index: body,
         dead: false,
         target_x: 50,
@@ -99,18 +100,29 @@ function enter_realm(realm) {
 let soul_counter = document.getElementById("souls-counter");
 let loan_counter = document.getElementById("loan-counter");
 let loan_payment_counter = document.getElementById("expected-loan-payment");
+let cashback_counter = document.getElementById("cashback");
 function change_souls(ds) {
     souls += ds;
-    soul_counter.innerHTML = souls.toString();
+    soul_counter.innerHTML = Math.floor(souls).toString();
+}
+function update_cashback() {
+    cashback_rate = 1 - Math.exp(-owed_souls / 1000000);
+    cashback_counter.innerHTML = (Math.floor(cashback_rate * 10000) / 100).toString() + "%";
+}
+function pay_souls(s) {
+    souls -= s;
+    souls += cashback_rate * s;
+    soul_counter.innerHTML = Math.floor(souls).toString();
 }
 function loan_souls(loan) {
     change_souls(loan);
-    owned_souls += loan;
-    loan_counter.innerHTML = owned_souls.toString();
+    owed_souls += loan;
+    update_cashback();
+    loan_counter.innerHTML = owed_souls.toString();
     loan_payment_counter.innerHTML = loan_payment().toString();
 }
 function loan_payment() {
-    return Math.floor(owned_souls * loan_payment_ratio);
+    return Math.floor(owed_souls * loan_payment_ratio);
 }
 function update_loan_payment() {
     change_souls(-loan_payment());
@@ -119,35 +131,72 @@ let loan_button = document.getElementById("take-loan");
 loan_button.onclick = () => {
     loan_souls(500);
 };
+let pay_loan_button = document.getElementById("pay-loan");
+pay_loan_button.onclick = () => {
+    if (souls > 500)
+        loan_souls(-500);
+};
 const player = {
-    spell_chain: 3,
-    spell_damage: 10,
+    spell_chain: 5,
+    spell_damage: 50,
     spell_range: 200,
     spell_cooldown: 0,
     blink_cooldown: 0,
     blink_explosion_damage: 20,
     blink_explosion_radius: 30,
-    aura_damage: 10,
-    aura_range: 10,
+    aura_damage: 100,
+    aura_range: 50,
+    aura_active: false,
     index: 0,
     cast_speed: 0.005
 };
+function aura_range() {
+    return player.aura_range * (1 + Math.sqrt(rampage));
+}
 let aura_range_button = document.getElementById("improve-aura-range");
 let aura_damage_button = document.getElementById("improve-aura-damage");
-let dungeon_button = document.getElementById("enter-dungeon");
-let fields_button = document.getElementById("enter-fields");
+let spell_chain_button = document.getElementById("improve-spell-chain");
+let spell_damage_button = document.getElementById("improve-spell-damage");
+let blink_damage_button = document.getElementById("improve-blink-damage");
+let blink_radius_button = document.getElementById("improve-blink-radius");
 aura_range_button.onclick = () => {
-    if (souls >= 50) {
-        change_souls(-50);
+    if (souls >= 1000) {
+        pay_souls(1000);
         player.aura_range += 1;
     }
 };
 aura_damage_button.onclick = () => {
-    if (souls >= 50) {
-        change_souls(-50);
+    if (souls >= 1000) {
+        pay_souls(1000);
         player.aura_damage += 5;
     }
 };
+spell_chain_button.onclick = () => {
+    if (souls >= 1000) {
+        pay_souls(1000);
+        player.spell_chain += 2;
+    }
+};
+spell_damage_button.onclick = () => {
+    if (souls >= 1000) {
+        pay_souls(1000);
+        player.spell_damage += 10;
+    }
+};
+blink_damage_button.onclick = () => {
+    if (souls >= 1000) {
+        pay_souls(1000);
+        player.blink_explosion_damage += 30;
+    }
+};
+blink_radius_button.onclick = () => {
+    if (souls >= 1000) {
+        pay_souls(1000);
+        player.blink_explosion_radius += 10;
+    }
+};
+let dungeon_button = document.getElementById("enter-dungeon");
+let fields_button = document.getElementById("enter-fields");
 dungeon_button.onclick = () => {
     enter_realm(REALM.DUNGEON);
 };
@@ -155,6 +204,19 @@ fields_button.onclick = () => {
     enter_realm(REALM.CREATURA);
 };
 function new_object(x, y, w, h, texture) {
+    for (let i = 0; i < game_objects.length; i++) {
+        if (game_objects[i].hidden) {
+            game_objects[i].x = x;
+            game_objects[i].y = y;
+            game_objects[i].dx = 0;
+            game_objects[i].dy = 0;
+            game_objects[i].w = w;
+            game_objects[i].h = h;
+            game_objects[i].texture_id = texture;
+            game_objects[i].hidden = false;
+            return i;
+        }
+    }
     game_objects.push({ x: x, y: y, w: w, h: h, dx: 0, dy: 0, hidden: false, texture_id: texture });
     return game_objects.length - 1;
 }
@@ -166,6 +228,7 @@ function create_enemy(x, y, w, h, target_x, target_y, speed) {
     let id = new_object(x, y, w, h, 1 + Math.floor(Math.random() * 6));
     enemies.push({
         hp: 500,
+        max_hp: 500,
         index: id,
         dead: false,
         target_x: target_x,
@@ -185,6 +248,8 @@ function change_hp(creation, x) {
     }
 }
 create_player();
+loan_souls(10000);
+change_souls(-5000);
 function closest_enemy_to_point(x, y, ignored) {
     let min_distance = player.spell_range;
     let closest = null;
@@ -207,7 +272,7 @@ function blink() {
         return;
     if (souls < 500)
         return;
-    change_souls(-500);
+    pay_souls(500);
     const player_object = game_objects[player.index];
     let closest = closest_enemy_to_point(player_object.x, player_object.y, []);
     if (closest == null)
@@ -225,6 +290,12 @@ function blink() {
     player.blink_cooldown = 1 / player.cast_speed;
 }
 function aura_update() {
+    if (!control_state.aura_pressed) {
+        player.aura_active = false;
+        return false;
+    }
+    player.aura_active = true;
+    pay_souls(0.1);
     const player_object = game_objects[player.index];
     for (const item of enemies) {
         const object = game_objects[item.index];
@@ -233,7 +304,7 @@ function aura_update() {
         let dx = player_object.x - object.x;
         let dy = player_object.y - object.y;
         let dist = dx * dx + dy * dy;
-        if (dist < player.aura_range * player.aura_range) {
+        if (dist < aura_range() * aura_range()) {
             change_hp(item, -player.aura_damage);
         }
     }
@@ -325,10 +396,21 @@ function update_game_state(timer) {
     open_breaches();
     aura_update();
     projectiles_update();
+    enemies.sort((a, b) => Number(a.dead) - Number(b.dead));
+    let j = 0;
+    for (let enemy of enemies) {
+        if (enemy.dead)
+            continue;
+        j++;
+    }
+    enemies.length = j;
+    explosions.sort((a, b) => -a.damage + b.damage);
+    let i = 0;
     for (let item of explosions) {
+        if (item.damage <= 0)
+            break;
+        i += 1;
         for (let enemy of enemies) {
-            if (item.damage <= 0)
-                continue;
             if (enemy.dead)
                 continue;
             let b = game_objects[enemy.index];
@@ -350,16 +432,20 @@ function update_game_state(timer) {
             }
         }
     }
+    explosions.length = i;
 }
 function open_breaches() {
     for (let item of breaches) {
         if (item.radius > 0)
+            continue;
+        if (souls < 1000)
             continue;
         let a = game_objects[item.index];
         let b = game_objects[player.index];
         if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < 2500) {
             item.radius = 300;
             a.texture_id = TEXTURE_INDEX.BREACH_DISABLED;
+            pay_souls(1000);
             for (let i = 0; i < 10; i++) {
                 for (let j = 0; j < 10; j++) {
                     let phi = Math.random() * Math.PI * 2;
@@ -433,7 +519,7 @@ function shoot_from_position(x, y) {
         shot_indices: []
     };
     projectiles.push(item);
-    change_souls(-1);
+    pay_souls(1);
     direct_spell_toward_closest_enemy(item);
     player.spell_cooldown = 1 / player.cast_speed;
 }
@@ -468,6 +554,7 @@ varying highp vec2 vTextureCoord;
 uniform sampler2D base_texture;
 uniform float inner_radius_ratio;
 uniform int style;
+uniform float time;
 
 float frac(float x) {
     return x - floor(x);
@@ -477,7 +564,7 @@ void main() {
     float x = vTextureCoord.x * 2.0 - 1.0;
     float y = vTextureCoord.y * 2.0 - 1.0;
     float r = length(vTextureCoord * 2.0 - vec2(1.0, 1.0));
-    float phi = atan(y, x);
+    float phi = atan(y, x) + time * r / 10.0;
 
     if ((inner_radius_ratio < r) && (r < 1.0)) {
         if (style == 0) {
@@ -543,7 +630,8 @@ const control_state = {
     left_pressed: false,
     right_pressed: false,
     up_pressed: false,
-    down_pressed: false
+    down_pressed: false,
+    aura_pressed: false,
 };
 window.addEventListener("keydown", (event) => {
     let player_object = game_objects[player.index];
@@ -569,6 +657,9 @@ window.addEventListener("keydown", (event) => {
             break;
         case "Space":
             blink();
+            break;
+        case "KeyQ":
+            control_state.aura_pressed = true;
             break;
     }
     if (event.code !== "Tab") {
@@ -596,6 +687,9 @@ window.addEventListener("keyup", (event) => {
         case "KeyD":
         case "ArrowRight":
             control_state.right_pressed = false;
+            break;
+        case "KeyQ":
+            control_state.aura_pressed = false;
             break;
     }
     if (event.code !== "Tab") {
@@ -641,6 +735,7 @@ function main() {
         uniformLocations: {
             position: gl.getUniformLocation(shaderProgramAura, "position"),
             size: gl.getUniformLocation(shaderProgramAura, "size"),
+            time: gl.getUniformLocation(shaderProgramAura, "time"),
             texture: gl.getUniformLocation(shaderProgramAura, "base_texture"),
             style: gl.getUniformLocation(shaderProgramAura, "style"),
             inner_radius_ratio: gl.getUniformLocation(shaderProgramAura, "inner_radius_ratio"),
@@ -662,6 +757,8 @@ function main() {
     }
     textures[10] = loadTexture(gl, "character.svg");
     textures[12] = loadTexture(gl, "flame.svg");
+    textures[8000] = loadTexture(gl, "hp-bar.png");
+    textures[8001] = loadTexture(gl, "hp-bar-bg.png");
     textures[TEXTURE_INDEX.BREACH] = loadTexture(gl, "breach-active.svg");
     textures[TEXTURE_INDEX.BREACH_DISABLED] = loadTexture(gl, "breach-inactive.svg");
     textures[20] = loadTexture(gl, "trees.svg");
@@ -676,7 +773,10 @@ function main() {
         if (start === undefined) {
             start = timestamp;
         }
-        const elapsed = Math.min(100, timestamp - start);
+        let global_slowdown = 1;
+        if (player.aura_active)
+            global_slowdown = 0.4;
+        const elapsed = Math.min(100, timestamp - start) * global_slowdown;
         start = timestamp;
         tick_time += elapsed;
         t += elapsed;
@@ -698,7 +798,7 @@ function main() {
             let inner_ratio = 1 - Math.min(item.damage / player.blink_explosion_damage, 1);
             item.outer_radius += 10 * elapsed * 0.001;
             item.inner_radius = inner_ratio * item.outer_radius;
-            item.damage -= 1 * elapsed * 0.01;
+            item.damage *= Math.exp(-elapsed * 0.01);
         }
         rampage *= Math.exp(-elapsed * 0.01);
         rampage = Math.max(0, rampage);
@@ -717,7 +817,7 @@ function main() {
         camera_x = camera_x + (player_object.x - camera_x) * 0.5;
         camera_y = camera_y + (player_object.y - camera_y) * 0.5;
         shoot_from_position(player_object.x, player_object.y);
-        drawScene(gl, programInfo, programAuraInfo, buffers, game_objects, explosions, bosses, player, camera_x, camera_y, 1 + Math.min(100, 0.01 * rampage) * (Math.sin(t / 10) + 2), textures, textures[bg_texture]);
+        drawScene(gl, programInfo, programAuraInfo, buffers, game_objects, explosions, enemies, bosses, player, aura_range(), camera_x, camera_y, t, 1 + Math.min(100, 0.01 * rampage) * (Math.sin(t / 10) + 2), textures, textures[bg_texture]);
         for (let item of projectiles) {
             if (item.dead)
                 continue;
@@ -728,6 +828,8 @@ function main() {
             }
         }
         for (let item of enemies) {
+            if (item.dead)
+                continue;
             let dx = item.target_x - game_objects[item.index].x;
             let dy = item.target_y - game_objects[item.index].y;
             let n = Math.sqrt(dx * dx + dy * dy) / item.speed;
@@ -755,6 +857,11 @@ function main() {
         if (control_state.right_pressed) {
             player_object.dx += 1;
         }
+        let speed = 1;
+        if (player.aura_active)
+            speed = 0.2;
+        player_object.dx *= speed;
+        player_object.dy *= speed;
         for (let item of game_objects) {
             item.x += item.dx * elapsed;
             item.y += item.dy * elapsed;
