@@ -10,5 +10,5 @@ func main() {
 	http.Handle("/game000/js/", http.StripPrefix("/game000/js/", http.FileServer(http.Dir("js"))))
 
 	http.Handle("/game000/", http.FileServer(http.Dir("./static")))
-	log.Fatal(http.ListenAndServe(":80", nil))
+	log.Fatal(http.ListenAndServe(":8091", nil))
 }
