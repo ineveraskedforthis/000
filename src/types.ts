@@ -13,7 +13,12 @@ export interface Mage {
     aura_active: boolean
 
     index: number,
-    cast_speed: number
+    cast_speed: number,
+
+    breach_radius: number
+    breach_waves: number
+
+    souls_quality: number
 }
 
 export interface ResetArea {

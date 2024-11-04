@@ -38,6 +38,9 @@ function reset() {
     breaches.length = 0;
     bosses.length = 0;
     game_objects.length = 1;
+    let player_object = game_objects[player.index];
+    player_object.x = 0;
+    player_object.y = 0;
 }
 function init_creatura() {
     bg_texture = TEXTURE_INDEX.BG_CREATURA;
@@ -148,51 +151,75 @@ const player = {
     aura_range: 50,
     aura_active: false,
     index: 0,
-    cast_speed: 0.005
+    cast_speed: 0.005,
+    breach_radius: 50,
+    breach_waves: 1,
+    souls_quality: 1,
 };
 function aura_range() {
     return player.aura_range * (1 + Math.sqrt(rampage));
 }
 let aura_range_button = document.getElementById("improve-aura-range");
-let aura_damage_button = document.getElementById("improve-aura-damage");
-let spell_chain_button = document.getElementById("improve-spell-chain");
-let spell_damage_button = document.getElementById("improve-spell-damage");
-let blink_damage_button = document.getElementById("improve-blink-damage");
-let blink_radius_button = document.getElementById("improve-blink-radius");
 aura_range_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.aura_range += 1;
     }
 };
+let aura_damage_button = document.getElementById("improve-aura-damage");
 aura_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.aura_damage += 5;
     }
 };
+let spell_chain_button = document.getElementById("improve-spell-chain");
 spell_chain_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.spell_chain += 2;
     }
 };
+let spell_damage_button = document.getElementById("improve-spell-damage");
 spell_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.spell_damage += 10;
     }
 };
+let blink_damage_button = document.getElementById("improve-blink-damage");
 blink_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.blink_explosion_damage += 30;
     }
 };
+let blink_radius_button = document.getElementById("improve-blink-radius");
 blink_radius_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000);
         player.blink_explosion_radius += 10;
+    }
+};
+let breach_radius_button = document.getElementById("increase-breach-radius");
+breach_radius_button.onclick = () => {
+    if (souls >= 3000) {
+        pay_souls(3000);
+        player.breach_radius += 25;
+    }
+};
+let breach_waves_button = document.getElementById("increase-breach-waves");
+breach_waves_button.onclick = () => {
+    if (souls >= 3000) {
+        pay_souls(3000);
+        player.breach_waves += 1;
+    }
+};
+let breach_tier_button = document.getElementById("increase-souls-quality");
+breach_tier_button.onclick = () => {
+    if (souls >= 5000) {
+        pay_souls(5000);
+        player.souls_quality += 1;
     }
 };
 let dungeon_button = document.getElementById("enter-dungeon");
@@ -243,7 +270,7 @@ function change_hp(creation, x) {
     if (creation.hp <= 0) {
         creation.dead = true;
         game_objects[creation.index].hidden = true;
-        change_souls(30);
+        change_souls(30 * player.souls_quality);
         rampage += 1;
     }
 }
@@ -444,22 +471,26 @@ function update_game_state(timer) {
         }
     }
 }
+function breach_cost() {
+    return 1000 * player.breach_waves + player.breach_radius;
+}
 function open_breaches() {
     for (let item of breaches) {
         if (item.radius > 0)
             continue;
-        if (souls < 1000)
+        if (souls < breach_cost())
             continue;
         let a = game_objects[item.index];
         let b = game_objects[player.index];
-        if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < 2500) {
-            item.radius = 300;
+        if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
             a.texture_id = TEXTURE_INDEX.BREACH_DISABLED;
-            pay_souls(1000);
-            for (let i = 0; i < 10; i++) {
-                for (let j = 0; j < 10; j++) {
+            item.radius = 100;
+            pay_souls(breach_cost());
+            for (let wave = 0; wave < player.breach_waves; wave++) {
+                let radius = 100 + 100 * wave;
+                for (let i = 0; i < 40 / (wave + 1); i++) {
                     let phi = Math.random() * Math.PI * 2;
-                    let r = item.radius - Math.random() * Math.random() * 50;
+                    let r = radius - Math.random() * Math.random() * 50;
                     let x = r * Math.cos(phi);
                     let y = r * Math.sin(phi);
                     create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20);

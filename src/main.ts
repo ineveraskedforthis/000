@@ -49,6 +49,11 @@ function reset() {
     breaches.length = 0
     bosses.length = 0
     game_objects.length = 1
+
+    let player_object = game_objects[player.index]
+
+    player_object.x = 0
+    player_object.y = 0
 }
 
 function init_creatura() {
@@ -190,7 +195,13 @@ const player: Mage = {
     aura_active: false,
 
     index: 0,
-    cast_speed: 0.005
+    cast_speed: 0.005,
+
+    breach_radius: 50,
+    breach_waves: 1,
+
+
+    souls_quality: 1,
 }
 
 function aura_range() {
@@ -199,13 +210,6 @@ function aura_range() {
 
 
 let aura_range_button  = document.getElementById("improve-aura-range")! as HTMLButtonElement
-let aura_damage_button  = document.getElementById("improve-aura-damage")! as HTMLButtonElement
-
-let spell_chain_button  = document.getElementById("improve-spell-chain")! as HTMLButtonElement
-let spell_damage_button  = document.getElementById("improve-spell-damage")! as HTMLButtonElement
-
-let blink_damage_button  = document.getElementById("improve-blink-damage")! as HTMLButtonElement
-let blink_radius_button  = document.getElementById("improve-blink-radius")! as HTMLButtonElement
 
 aura_range_button.onclick = () => {
     if (souls >= 1000) {
@@ -213,6 +217,8 @@ aura_range_button.onclick = () => {
         player.aura_range += 1
     }
 }
+let aura_damage_button  = document.getElementById("improve-aura-damage")! as HTMLButtonElement
+
 aura_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000)
@@ -220,12 +226,15 @@ aura_damage_button.onclick = () => {
     }
 }
 
+let spell_chain_button  = document.getElementById("improve-spell-chain")! as HTMLButtonElement
 spell_chain_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000)
         player.spell_chain += 2
     }
 }
+let spell_damage_button  = document.getElementById("improve-spell-damage")! as HTMLButtonElement
+
 spell_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000)
@@ -233,16 +242,44 @@ spell_damage_button.onclick = () => {
     }
 }
 
+let blink_damage_button  = document.getElementById("improve-blink-damage")! as HTMLButtonElement
 blink_damage_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000)
         player.blink_explosion_damage += 30
     }
 }
+
+
+let blink_radius_button  = document.getElementById("improve-blink-radius")! as HTMLButtonElement
 blink_radius_button.onclick = () => {
     if (souls >= 1000) {
         pay_souls(1000)
         player.blink_explosion_radius += 10
+    }
+}
+
+let breach_radius_button = document.getElementById("increase-breach-radius")! as HTMLButtonElement
+breach_radius_button.onclick = () => {
+    if (souls >= 3000) {
+        pay_souls(3000)
+        player.breach_radius += 25
+    }
+}
+
+let breach_waves_button = document.getElementById("increase-breach-waves")! as HTMLButtonElement
+breach_waves_button.onclick = () => {
+    if (souls >= 3000) {
+        pay_souls(3000)
+        player.breach_waves += 1
+    }
+}
+
+let breach_tier_button = document.getElementById("increase-souls-quality")! as HTMLButtonElement
+breach_tier_button.onclick = () => {
+    if (souls >= 5000) {
+        pay_souls(5000)
+        player.souls_quality += 1
     }
 }
 
@@ -300,8 +337,7 @@ function change_hp(creation: Creation, x: number) {
     if (creation.hp <= 0) {
         creation.dead = true
         game_objects[creation.index].hidden = true;
-        change_souls(30)
-
+        change_souls(30 * player.souls_quality)
         rampage += 1
     }
 }
@@ -537,22 +573,29 @@ function update_game_state(timer) {
     }
 }
 
+function breach_cost() {
+    return 1000 * player.breach_waves + player.breach_radius
+}
+
 function open_breaches() {
     for (let item of breaches) {
         if (item.radius > 0) continue;
-        if (souls < 1000) continue;
+        if (souls < breach_cost()) continue;
 
         let a = game_objects[item.index]
         let b = game_objects[player.index]
 
-        if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < 2500) {
-            item.radius = 300
+
+
+        if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
             a.texture_id = TEXTURE_INDEX.BREACH_DISABLED
-            pay_souls(1000)
-            for (let i = 0; i < 10; i++) {
-                for (let j = 0; j < 10; j++) {
+            item.radius = 100
+            pay_souls(breach_cost())
+            for (let wave = 0; wave < player.breach_waves; wave ++) {
+                let radius = 100 + 100 * wave
+                for (let i = 0; i < 40 / (wave + 1); i++) {
                     let phi = Math.random() * Math.PI * 2
-                    let r = item.radius - Math.random() * Math.random() * 50
+                    let r = radius - Math.random() * Math.random() * 50
 
                     let x = r * Math.cos(phi)
                     let y = r * Math.sin(phi)
