@@ -88,7 +88,7 @@ export function drawScene(
             gl.uniform2f(programInfo.uniformLocations.position, 100 * (i + base_x), 100 * (j + base_y));
             gl.uniform2f(programInfo.uniformLocations.size, 80, 50);
             gl.bindTexture(gl.TEXTURE_2D, bg_texture)
-            const vertexCount = 6;
+            const vertexCount = 4;
             const offset = 0;
             gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
         }
@@ -115,7 +115,7 @@ export function drawScene(
         gl.uniform2f(programAuraInfo.uniformLocations.size, player_aura_range, player_aura_range);
         gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, 0)
 
-        const vertexCount = 6;
+        const vertexCount = 4;
         const offset = 0;
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
@@ -127,7 +127,7 @@ export function drawScene(
         gl.uniform2f(programAuraInfo.uniformLocations.size, item.outer_radius, item.outer_radius);
         gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, item.inner_radius / item.outer_radius)
 
-        const vertexCount = 6;
+        const vertexCount = 4;
         const offset = 0;
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
@@ -142,7 +142,7 @@ export function drawScene(
             gl.uniform2f(programAuraInfo.uniformLocations.size, area.radius, area.radius);
             gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, area.inner_radius / area.radius)
 
-            const vertexCount = 6;
+            const vertexCount = 4;
             const offset = 0;
             gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
         }
@@ -156,7 +156,7 @@ export function drawScene(
         gl.bindTexture(gl.TEXTURE_2D, textures[item.texture_id])
         gl.uniform2f(programInfo.uniformLocations.position, item.x, item.y + item.h);
         gl.uniform2f(programInfo.uniformLocations.size, item.w, item.h);
-        const vertexCount = 6;
+        const vertexCount = 4;
         const offset = 0;
         gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
     }
@@ -164,7 +164,7 @@ export function drawScene(
     for (const item of enemies) {
         if (item.dead) continue
         const object = game_state[item.index]
-        const vertexCount = 6;
+        const vertexCount = 4;
         const offset = 0;
 
         gl.bindTexture(gl.TEXTURE_2D, textures[8001])

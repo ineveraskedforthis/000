@@ -137,7 +137,7 @@ pay_loan_button.onclick = () => {
         loan_souls(-500);
 };
 const player = {
-    spell_chain: 5,
+    spell_chain: 20,
     spell_damage: 50,
     spell_range: 200,
     spell_cooldown: 0,
