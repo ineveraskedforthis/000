@@ -480,13 +480,7 @@ function update_boss(timer: number) {
         enter_realm(REALM.CREATURA)
 }
 
-function update_game_state(timer) {
-    update_boss(timer)
-
-    open_breaches()
-    aura_update();
-    projectiles_update();
-
+function clear_enemies() {
     enemies.sort((a, b) => Number(a.dead) - Number(b.dead))
     let j = 0
     for (let enemy of enemies) {
@@ -494,13 +488,29 @@ function update_game_state(timer) {
         j++
     }
     enemies.length = j
+}
 
+function clear_explosions() {
     explosions.sort((a, b) => -a.damage + b.damage)
     let i = 0
     for (let item of explosions) {
         if (item.damage <= 0) break;
         i += 1
+    }
+    explosions.length = i
+}
 
+function update_game_state(timer) {
+    update_boss(timer)
+
+    open_breaches();
+    aura_update();
+    projectiles_update();
+    clear_enemies();
+    clear_explosions();
+
+    for (let item of explosions) {
+        if (item.damage <= 0) break;
         for (let enemy of enemies) {
             if (enemy.dead) continue;
 
@@ -525,8 +535,6 @@ function update_game_state(timer) {
             }
         }
     }
-
-    explosions.length = i
 }
 
 function open_breaches() {
