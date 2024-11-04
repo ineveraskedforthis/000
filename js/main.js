@@ -376,7 +376,7 @@ function update_boss(timer) {
     for (let item of bosses) {
         let boss_object = game_objects[item.index_body];
         let boss_entity = enemies[item.enemy];
-        if (boss_entity.dead) {
+        if (boss_entity == undefined || boss_entity.dead) {
             item.phase = -1;
             continue;
         }

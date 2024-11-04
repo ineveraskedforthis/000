@@ -461,7 +461,7 @@ function update_boss(timer: number) {
 
         let boss_entity = enemies[item.enemy]
 
-        if (boss_entity.dead) {
+        if (boss_entity == undefined || boss_entity.dead) {
             item.phase = -1
             continue
         }
