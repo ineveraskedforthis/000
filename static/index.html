@@ -1,64 +1,219 @@
 <!DOCTYPE html>
 
 <head>
-    <meta charset="utf-8" />
-    <title>Game 000</title>
-    <link rel="stylesheet" href="/game000/css/main.css" type="text/css" />
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
-        integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
-        crossorigin="anonymous"
-        defer
-    ></script>
-    <script src="/game000/js/main.js" type="module"></script>
+  <meta charset="utf-8" />
+  <title>Game 000</title>
+  <link rel="stylesheet" href="/game000/css/output.css" type="text/css" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
+    integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
+    crossorigin="anonymous"
+    defer
+  >
+  </script>
+  <script src="/game000/js/main.js" type="module"></script>
 </head>
 
-<body>
-<div class="game-frame">
-    <div>
-        Stats
+<body class="">
+  <div class="game-frame relative w-[1100px] h-[720px]">
+    <div class="relative select-none">
+      <canvas class="" id="main-canvas" width="1100" height="720"></canvas>
+      <div class="absolute top-0 left-0 p-2">
+        <div class="mb-2 bg-black text-white p-2 rounded-lg bg-opacity-50">
+          <div class="font-press-start font-normal text-sm">
+            <div class="flex">
+              <span>Souls:</span>
+              <div class="ml-2 text-red-500 font-bold" id="souls-counter"></div>              
+            </div>
+            
+            <div class="flex gap-2">
+              <span>Loan:</span>
+              <div class="" id="loan-counter"></div>
+            </div>
 
-        Q - Aura
-        <br>
-        Space - Blink + Explosion
-        <br>
+            <div class="">
+              <button id="take-loan" class="hover:bg-white hover:text-black">Take loan (500)</button>
+              <button id="pay-loan" class="hover:bg-white hover:text-black">Pay back loan (500)</button>
+              <button id="toggleModal" class="px-3 py-1 bg-blue-500 text-white rounded">?</button>
+              <button id="toggleShopModal" class="px-3 py-1 bg-blue-500 text-white rounded">$</button>
+              <button id="toggleZoneModal" class="px-3 py-1 bg-blue-500 text-white rounded ">t</button>
 
-        ...
-    </div>
-
-    <div>
-        <canvas id="main-canvas" width="800" height="600"></canvas>
-    </div>
-
-    <div>
-        <div>Shop</div>
-
-        <div>
-            Souls: <div id="souls-counter"></div>
-            Loan: <div id="loan-counter"></div>
-            <button id="take-loan">Take loan (500)</button>
-            <button id="pay-loan">Pay back loan (500)</button>
-            You are expected to pay <span id="expected-loan-payment">???</span> in <span id="time-until-payment">???</span> seconds.
-            Your current cashback is <span id="cashback">???</span>
+            </div>
+          </div>
         </div>
-        <br>
-        <button id="improve-aura-range">Aura range</button>
-        <button id="improve-aura-damage">Aura damage</button>
-        <br>
-        <button id="improve-spell-chain">Chain</button>
-        <button id="improve-spell-damage">Spell damage</button>
-        <br>
-        <button id="improve-blink-radius">Explosion radius</button>
-        <button id="improve-blink-damage">Explosion damage</button>
-        <br>
-        <br>
-        <button id="increase-breach-radius">Souls activation radius</button>
-        <button id="increase-breach-waves">Souls activation waves</button>
-        <br>
-        <button id="increase-souls-quality">Souls quality.</button>
-        <br>
-        <button id="enter-dungeon">Fight boss</button>
-        <button id="enter-fields">Go to souls fields</button>
+
+        <!-- Loan contract INFO modal window  -->
+        <div id="modal" class="fixed bg-black rounded-lg bg-opacity-50 hidden items-center justify-center">
+          <div class="font-press-start text-white p-2">
+            <h2 class="text-sm mb-4">Loan contract</h2>
+            <p>You are expected to pay</p>
+            <span id="expected-loan-payment">???</span> in
+            <span id="time-until-payment">???</span> seconds. Your current cashback is <span id="cashback">???</span>
+          </div>
+        </div>
+
+        <!-- Shop modal window  -->
+        <div id="shopModal" class="fixed bg-black rounded-lg bg-opacity-50 hidden items-center justify-center">
+          <div class="font-press-start text-white p-2 text-sm font-normal flex flex-col items-start">
+            <h2 class="mb-4">Shop</h2>
+
+            <button id="improve-aura-range" class="mt-2 hover:bg-white hover:text-black">Aura range</button>
+
+            <button id="improve-aura-damage" class="mt-2 hover:bg-white hover:text-black" >Aura damage</button>
+
+            <br>
+
+            <button id="improve-spell-chain" class="mt-2 hover:bg-white hover:text-black">Chain</button>
+
+            <button id="improve-spell-damage" class="mt-2 hover:bg-white hover:text-black">Spell damage</button>
+
+            <button id="improve-blink-radius" class="mt-2 hover:bg-white hover:text-black">Explosion radius</button>
+
+            <button id="improve-blink-damage" class="mt-2 hover:bg-white hover:text-black">Explosion damage</button>
+
+            <br>
+
+            <button id="increase-breach-radius" class="mt-2 hover:bg-white hover:text-black">Souls activation radius</button>
+
+            <button id="increase-breach-waves" class="mt-2 hover:bg-white hover:text-black">Souls activation waves</button>
+
+            <button id="increase-souls-quality" class="mt-2 hover:bg-white hover:text-black">Souls quality</button>
+
+          </div>
+        </div>
+
+        <!-- ZONE modal window  -->
+        <div id="zone" class="fixed bg-black rounded-lg bg-opacity-50 hidden items-center justify-center">
+          <div class="font-press-start text-white p-2 text-sm font-normal flex flex-col items-start">
+            <h2 class="text-sm mb-4">Choose zone</h2>
+            <button id="enter-dungeon" class="mt-2 hover:bg-white hover:text-black">Fight boss</button>
+
+            <button id="enter-fields" class="mt-2 hover:bg-white hover:text-black">Go to souls fields</button>            
+          </div>
+        </div>
+
+
+      </div>
+
+
+      <!-- Keys -->
+      <div class="keys font-press-start font-normal">
+        <div class="absolute flex gap-2 bottom-0 left-1/2 transform -translate-x-1/2 mb-4">
+          <div id="Q" class="w-10 h-10 p-2 bg-black bg-opacity-50 text-white rounded-lg flex items-center justify-center">
+            <span>
+              Q
+            </span>
+          </div>
+
+          <div id="SPACE" class="w-auto p-2 bg-black bg-opacity-50 text-white rounded-lg flex items-center justify-center">
+            <span>
+              SPACE
+            </span>
+          </div>
+
+          <div id="E" class="w-10 h-10 p-2 bg-black bg-opacity-50 text-white rounded-lg flex items-center justify-center">
+            <span>
+              E
+            </span>
+          </div>
+
+          <div id="R" class="w-10 h-10 p-2 bg-black bg-opacity-50 text-white rounded-lg flex items-center justify-center">
+            <span>
+              R
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+
+
+      <div>
+        
+        
+      </div>      
     </div>
-</div>
+  </div>
+  
 </body>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Массив для хранения открытых модальных окон
+    const openModals = [];
+
+    // Функция для открытия и закрытия модального окна
+    function setupModal(toggleButtonId, modalId) {
+        const toggleButton = document.getElementById(toggleButtonId);
+        const modal = document.getElementById(modalId);
+
+        // Открытие модального окна
+        toggleButton.addEventListener('click', () => {
+            // Закрываем все открытые модальные окна
+            openModals.forEach(openModal => {
+                if (openModal !== modal) {
+                    openModal.classList.add('hidden');
+                }
+            });
+
+            // Открываем текущее модальное окно
+            modal.classList.toggle('hidden');
+
+            // Обновляем массив открытых модальных окон
+            if (modal.classList.contains('hidden')) {
+                const index = openModals.indexOf(modal);
+                if (index > -1) {
+                    openModals.splice(index, 1);
+                }
+            } else {
+                if (!openModals.includes(modal)) {
+                    openModals.push(modal);
+                }
+            }
+        });
+
+        // Закрытие модального окна при клике вне его
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.classList.add('hidden');
+                const index = openModals.indexOf(modal);
+                if (index > -1) {
+                    openModals.splice(index, 1);
+                }
+            }
+        });
+    }
+
+    // Настройка модальных окон
+    setupModal('toggleModal', 'modal'); // Loan contract modal
+    setupModal('toggleShopModal', 'shopModal'); // Shop modal
+    setupModal('toggleZoneModal', 'zone'); // Zone modal
+});
+</script>
+
+<script>
+    const elements = {
+        'KeyQ': document.getElementById('Q'), // Код клавиши для "Q"
+        'Space': document.getElementById('SPACE'), // Код клавиши для "BACKSPACE"
+        'KeyE': document.getElementById('E'), // Код клавиши для "E"
+        'KeyR': document.getElementById('R'), // Код клавиши для "R"
+    };
+
+    document.addEventListener('keydown', function(event) {
+        const key = event.code; // Используем event.code для получения кода клавиши
+        if (elements[key]) {
+            elements[key].classList.add('bg-white'); // Меняем цвет фона на белый
+            elements[key].classList.remove('text-black'); // Меняем цвет текста на черный
+        }
+    });
+
+    document.addEventListener('keyup', function(event) {
+        const key = event.code; // Используем event.code для получения кода клавиши
+        if (elements[key]) {
+            elements[key].classList.remove('bg-white'); // Возвращаем цвет фона
+            elements[key].classList.add('bg-black'); // Возвращаем цвет фона
+            elements[key].classList.add('text-white'); // Возвращаем цвет текста
+        }
+    });
+</script>
