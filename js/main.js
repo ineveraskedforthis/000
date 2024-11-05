@@ -67,8 +67,8 @@ function init_dungeon() {
     let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME);
     let body = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY);
     let enemy_body = {
-        hp: 10000,
-        max_hp: 10000,
+        hp: 1000000,
+        max_hp: 1000000,
         index: body,
         dead: false,
         target_x: 50,
@@ -388,10 +388,13 @@ function update_boss(timer) {
         let to_remove = [];
         for (let i = 0; i < 30; i++) {
             let add = enemies[item.adds[i]];
-            if (add == undefined || add.dead)
+            if (add == undefined || add.dead) {
                 to_remove.push(i);
-            add.target_x = boss_object.x + Math.sin(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3));
-            add.target_y = boss_object.y + Math.cos(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3));
+            }
+            else {
+                add.target_x = boss_object.x + Math.sin(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3));
+                add.target_y = boss_object.y + Math.cos(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3));
+            }
         }
         for (let dead_add of to_remove) {
             item.adds.splice(dead_add, 1);
