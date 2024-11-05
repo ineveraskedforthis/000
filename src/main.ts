@@ -477,7 +477,7 @@ function update_boss(timer: number) {
         for (let i = 0; i < 30; i++) {
             let add = enemies[item.adds[i]]
 
-            if (add.dead) to_remove.push(i)
+            if (add == undefined || add.dead) to_remove.push(i)
 
             add.target_x = boss_object.x + Math.sin(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3))
             add.target_y = boss_object.y + Math.cos(timer + Math.PI * 2 / 30 * i) * 400 * (2 + Math.sin(Math.PI * i / 3))
