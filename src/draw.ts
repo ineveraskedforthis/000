@@ -1,11 +1,12 @@
-import { Creation, DungeonMaster, Explosion, GameObject, Mage } from "./types";
+import { ChunkData, Creation, DungeonMaster, Explosion, GameObject, Mage, WorldDescription } from "./types";
+import { get_chunk } from "./world";
 
 export function drawScene(
     gl: WebGLRenderingContext,
     programInfo,
     programAuraInfo,
     buffers,
-    game_state: GameObject[],
+    game_state: GameObject[], desc:WorldDescription, world: ChunkData[],
     explosions: Explosion[],
     enemies: Creation[],
     bosses: DungeonMaster[],
@@ -80,14 +81,31 @@ export function drawScene(
 
     gl.uniform1i(programInfo.uniformLocations.texture, 0)
 
-    let base_x = Math.floor(camera_x / 100)
-    let base_y = Math.floor(camera_y / 100)
+
+    let player_object = game_state[player.index]
+
+    let chunk = get_chunk(desc, camera_x, camera_y)
+
+    let chunk_x = chunk[0]
+    let chunk_y = chunk[1]
 
     for (let i = -5; i < 5; i++) {
         for (let j = -5; j < 5; j++) {
-            gl.uniform2f(programInfo.uniformLocations.position, 100 * (i + base_x), 100 * (j + base_y));
-            gl.uniform2f(programInfo.uniformLocations.size, 80, 50);
+            let x = i + chunk_x
+            let y = j + chunk_y
+
+            if (x < 0) break;
+            if (y < 0) break;
+            if (x >= desc.size_in_chunks) break;
+            if (y >= desc.size_in_chunks) break;
+
+            gl.uniform2f(programInfo.uniformLocations.position, desc.chunk_size * (i + chunk_x), desc.chunk_size * (j + chunk_y));
+            gl.uniform2f(programInfo.uniformLocations.size, desc.chunk_size, desc.chunk_size);
+
+            let shifted_x =
             gl.bindTexture(gl.TEXTURE_2D, bg_texture)
+
+
             const vertexCount = 4;
             const offset = 0;
             gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
@@ -110,7 +128,7 @@ export function drawScene(
     );
 
     if (player.aura_active) {
-        let player_object = game_state[player.index]
+
         gl.uniform2f(programAuraInfo.uniformLocations.position, player_object.x, player_object.y);
         gl.uniform2f(programAuraInfo.uniformLocations.size, player_aura_range, player_aura_range);
         gl.uniform1f(programAuraInfo.uniformLocations.inner_radius_ratio, 0)

@@ -2,30 +2,98 @@
 
 import { initBuffers } from "./init_buffers.js";
 import { drawScene } from "./draw.js";
-import { Breach, ControlState, Creation, DungeonMaster, Explosion, GameObject, Mage, ResetArea, Spell } from "./types.js";
+import { Breach, ChunkData, ControlState, Creation, DungeonMaster, Explosion, GameObject, Mage, NPC, ResetArea, Spell, WorldDescription } from "./types.js";
 import { loadTexture } from "./texture.js";
 
-enum TEXTURE_INDEX {
-    BREACH = 100,
-    BREACH_DISABLED = 101,
 
-    BG_DUNGEON = 1001,
-    BG_CREATURA = 1002,
+const player: Mage = {
+    spell_chain: 20,
+    spell_damage: 50,
+    spell_range: 200,
+    spell_cooldown: 0,
 
-    BOSS_DUNGEON_BODY = 2001,
-    BOSS_DUNGEON_FLAME = 2002
+    blink_cooldown: 0,
+    blink_explosion_damage: 20,
+    blink_explosion_radius: 30,
+
+    aura_damage: 100,
+    aura_range: 50,
+    aura_active: false,
+
+    index: 0,
+    cast_speed: 0.005,
+
+    breach_radius: 50,
+    breach_waves: 1,
+
+    souls_quality: 1,
 }
 
-enum REALM {
-    CREATURA = 1,
-    DUNGEON = 2
+const world_description : WorldDescription = {
+    size_in_chunks: 5000,
+    chunk_size: 100
 }
 
+const world_true_size = world_size_in_chunks * chunk_size
+
+
+
+
+
+const world : ChunkData[] = []
 const game_objects: GameObject[] = []
+
+function spawn_breaches(cx: number, cy: number, intensity: number) {
+    // start with basic circles
+    while (intensity > 0) {
+        for (let i = 0; i < 10 * intensity; i++) {
+            let phi = i / 10 * intensity * Math.PI
+            let r = intensity * 200 + 200
+
+            let x = cx + Math.cos(phi) * r
+            let y = cy + Math.sin(phi) * r
+
+            let object = new_object(x, y, 50, 50, TEXTURE_INDEX.BREACH)
+
+            let breach : Breach = {
+                index: object,
+                radius: 0
+            }
+
+            let chunk = get_chunk_index(x, y)
+
+            world[chunk].breaches.push(breach)
+        }
+    }
+}
+
+function generate_world() {
+    for (let i = 0; i < world_size_in_chunks; i++) {
+        for (let j = 0; j < world_size_in_chunks; j++) {
+            world[i * world_size_in_chunks + j] = {
+                biome: BIOME.SOULS_PLANES,
+                breaches: [],
+                passive_objects: []
+            }
+        }
+    }
+
+    spawn_breaches(world_true_size / 2, world_true_size / 2, 5)
+}
+
+generate_world()
+
+
+let id = new_object(0, 0, 5, 20, 10)
+player.index = id
+let player_object = game_objects[player.index]
+player_object.x = world_true_size / 2
+player_object.y = world_true_size / 2
+
+
 const enemies: Creation[] = []
 const projectiles: Spell[] = []
 const explosions: Explosion[] = []
-const breaches: Breach[] = []
 const bosses: DungeonMaster[] = []
 
 let souls = 0
@@ -46,31 +114,48 @@ function reset() {
     enemies.length = 0
     projectiles.length = 0
     explosions.length = 0
-    breaches.length = 0
     bosses.length = 0
     game_objects.length = 1
 
-    let player_object = game_objects[player.index]
 
-    player_object.x = 0
-    player_object.y = 0
+}
+
+const REPUTATION_THRESHOLD = {
+    HATEFUL: -1,
+    OPPOSED: 500,
+    COLD: 2000,
+    NEUTRAL: 4000,
+    RECOGNISED: 10000
+}
+
+const soul_keeper: NPC = {
+    souls: 1000,
+    reputation: 0,
+    x: 500, y: 500
+}
+
+const quests_stage = {}
+
+function get_quests_of_soul_keeper() {
+    return [QUEST.BRING_SOULS]
+}
+
+function quest_bring_souls_activate() {
+    quests_stage[QUEST.BRING_SOULS] = QUEST_STAGE.ACTIVE
+}
+
+function quest_bring_souls_condition() {
+    return (souls > 50000)
+}
+
+function quest_bring_souls_complete() {
+    soul_keeper.reputation += 500
+    change_souls(-50000)
+    soul_keeper.souls += 50000
 }
 
 function init_creatura() {
     bg_texture = TEXTURE_INDEX.BG_CREATURA
-    for (let i = 0; i < 2000; i++) {
-        let x = (Math.random() - 0.5) * 20000
-        let y = (Math.random() - 0.5) * 20000
-
-        let object = new_object(x, y, 50, 50, TEXTURE_INDEX.BREACH)
-
-        let breach : Breach = {
-            index: object,
-            radius: 0
-        }
-
-        breaches.push(breach)
-    }
 
     for (let i = 0; i < 100; i++) {
         let x = (Math.random() - 0.5) * 1000
@@ -180,29 +265,7 @@ pay_loan_button.onclick = () => {
         loan_souls(-500)
 }
 
-const player: Mage = {
-    spell_chain: 20,
-    spell_damage: 50,
-    spell_range: 200,
-    spell_cooldown: 0,
 
-    blink_cooldown: 0,
-    blink_explosion_damage: 20,
-    blink_explosion_radius: 30,
-
-    aura_damage: 100,
-    aura_range: 50,
-    aura_active: false,
-
-    index: 0,
-    cast_speed: 0.005,
-
-    breach_radius: 50,
-    breach_waves: 1,
-
-
-    souls_quality: 1,
-}
 
 function aura_range() {
     return player.aura_range * (1 + Math.sqrt(rampage))
@@ -312,11 +375,6 @@ function new_object(x, y, w, h, texture) {
     return game_objects.length - 1
 }
 
-function create_player() {
-    let id = new_object(0, 0, 5, 20, 10)
-    player.index = id
-}
-
 function create_enemy(x, y, w, h, target_x, target_y, speed) {
     let id = new_object(x, y, w, h, 1 + Math.floor(Math.random() * 6))
     enemies.push({
@@ -343,7 +401,6 @@ function change_hp(creation: Creation, x: number) {
 }
 
 
-create_player()
 loan_souls(10000)
 change_souls(-5000)
 
@@ -580,29 +637,31 @@ function breach_cost() {
 }
 
 function open_breaches() {
-    for (let item of breaches) {
-        if (item.radius > 0) continue;
-        if (souls < breach_cost()) continue;
+    for (let chunk of world){
+        for (let item of chunk.breaches) {
+            if (item.radius > 0) continue;
+            if (souls < breach_cost()) continue;
 
-        let a = game_objects[item.index]
-        let b = game_objects[player.index]
+            let a = game_objects[item.index]
+            let b = game_objects[player.index]
 
 
 
-        if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
-            a.texture_id = TEXTURE_INDEX.BREACH_DISABLED
-            item.radius = 100
-            pay_souls(breach_cost())
-            for (let wave = 0; wave < player.breach_waves; wave ++) {
-                let radius = 100 + 100 * wave
-                for (let i = 0; i < 40 / (wave + 1); i++) {
-                    let phi = Math.random() * Math.PI * 2
-                    let r = radius - Math.random() * Math.random() * 50
+            if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
+                a.texture_id = TEXTURE_INDEX.BREACH_DISABLED
+                item.radius = 100
+                pay_souls(breach_cost())
+                for (let wave = 0; wave < player.breach_waves; wave ++) {
+                    let radius = 100 + 100 * wave
+                    for (let i = 0; i < 40 / (wave + 1); i++) {
+                        let phi = Math.random() * Math.PI * 2
+                        let r = radius - Math.random() * Math.random() * 50
 
-                    let x = r * Math.cos(phi)
-                    let y = r * Math.sin(phi)
+                        let x = r * Math.cos(phi)
+                        let y = r * Math.sin(phi)
 
-                    create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20)
+                        create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20)
+                    }
                 }
             }
         }
@@ -1076,7 +1135,7 @@ function main() {
 
         drawScene(
             gl, programInfo, programAuraInfo, buffers,
-            game_objects, explosions, enemies, bosses, player, aura_range(),
+            game_objects, world, explosions, enemies, bosses, player, aura_range(),
             camera_x, camera_y, t,
             1 + Math.min(100, 0.01 * rampage) * (Math.sin(t / 10) + 2),
             textures, textures[bg_texture]

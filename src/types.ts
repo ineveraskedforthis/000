@@ -21,6 +21,12 @@ export interface Mage {
     souls_quality: number
 }
 
+export interface NPC {
+    reputation: number,
+    souls: number,
+    x: number, y: number
+}
+
 export interface ResetArea {
     x: number,
     y: number
@@ -96,4 +102,15 @@ export interface GameObject {
     texture_id: number
 
     hidden: boolean
+}
+
+export interface ChunkData {
+    biome: BIOME
+    breaches: Breach[]
+    passive_objects: GameObject[]
+}
+
+export interface WorldDescription {
+    size_in_chunks: number
+    chunk_size: number,
 }
