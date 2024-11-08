@@ -1,4 +1,4 @@
-enum TEXTURE_INDEX {
+export enum TEXTURE_INDEX {
     BREACH = 100,
     BREACH_DISABLED = 101,
 
@@ -9,23 +9,17 @@ enum TEXTURE_INDEX {
     BOSS_DUNGEON_FLAME = 2002
 }
 
-enum REALM {
-    CREATURA = 1,
-    DUNGEON = 2
-}
-
-enum BIOME {
+export enum BIOME {
     SOULS_PLANES = 1,
     RED_SOURCE = 2
 }
 
-
-enum QUEST_STAGE {
+export enum QUEST_STAGE {
     AVAILABLE = 1,
     ACTIVE = 2,
     COMPLETED = 3,
 }
 
-enum QUEST {
+export enum QUEST {
     BRING_SOULS
 }

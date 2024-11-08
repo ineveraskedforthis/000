@@ -1,4 +1,4 @@
-import { WorldDescription } from "./types"
+import { WorldDescription } from "./types.js"
 
 export function get_chunk(w: WorldDescription, x: number, y: number): [number, number] {
     return [Math.floor(x / w.chunk_size), Math.floor(y / w.chunk_size)]

@@ -1,3 +1,5 @@
+import { BIOME } from "./enums.js"
+
 export interface Mage {
     spell_chain: number,
     spell_damage: number,

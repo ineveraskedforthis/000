@@ -4,6 +4,8 @@ import { initBuffers } from "./init_buffers.js";
 import { drawScene } from "./draw.js";
 import { Breach, ChunkData, ControlState, Creation, DungeonMaster, Explosion, GameObject, Mage, NPC, ResetArea, Spell, WorldDescription } from "./types.js";
 import { loadTexture } from "./texture.js";
+import { BIOME, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
+import { get_chunk_index } from "./world.js";
 
 
 const player: Mage = {
@@ -30,25 +32,22 @@ const player: Mage = {
 }
 
 const world_description : WorldDescription = {
-    size_in_chunks: 5000,
+    size_in_chunks: 500,
     chunk_size: 100
 }
 
-const world_true_size = world_size_in_chunks * chunk_size
 
-
-
-
+const world_true_size = world_description.size_in_chunks * world_description.chunk_size
 
 const world : ChunkData[] = []
 const game_objects: GameObject[] = []
 
-function spawn_breaches(cx: number, cy: number, intensity: number) {
+function spawn_breaches(world_description: WorldDescription, cx: number, cy: number, intensity: number) {
     // start with basic circles
     while (intensity > 0) {
         for (let i = 0; i < 10 * intensity; i++) {
-            let phi = i / 10 * intensity * Math.PI
-            let r = intensity * 200 + 200
+            let phi = i / 10 / intensity * Math.PI * 2
+            let r = intensity * 200 + 100
 
             let x = cx + Math.cos(phi) * r
             let y = cy + Math.sin(phi) * r
@@ -60,17 +59,19 @@ function spawn_breaches(cx: number, cy: number, intensity: number) {
                 radius: 0
             }
 
-            let chunk = get_chunk_index(x, y)
+            let chunk = get_chunk_index(world_description, x, y)
 
             world[chunk].breaches.push(breach)
         }
+
+        intensity -= 1
     }
 }
 
-function generate_world() {
-    for (let i = 0; i < world_size_in_chunks; i++) {
-        for (let j = 0; j < world_size_in_chunks; j++) {
-            world[i * world_size_in_chunks + j] = {
+function generate_world(world_description: WorldDescription) {
+    for (let i = 0; i < world_description.size_in_chunks; i++) {
+        for (let j = 0; j < world_description.size_in_chunks; j++) {
+            world[i * world_description.size_in_chunks + j] = {
                 biome: BIOME.SOULS_PLANES,
                 breaches: [],
                 passive_objects: []
@@ -78,11 +79,8 @@ function generate_world() {
         }
     }
 
-    spawn_breaches(world_true_size / 2, world_true_size / 2, 5)
+    spawn_breaches(world_description, world_true_size / 2, world_true_size / 2, 5)
 }
-
-generate_world()
-
 
 let id = new_object(0, 0, 5, 20, 10)
 player.index = id
@@ -107,7 +105,6 @@ let banking_season_length = 120 * 1000
 let cores = 0
 let rampage = 0
 
-let realm = REALM.CREATURA
 let bg_texture = TEXTURE_INDEX.BG_CREATURA
 
 function reset() {
@@ -117,7 +114,8 @@ function reset() {
     bosses.length = 0
     game_objects.length = 1
 
-
+    player_object.x = world_true_size / 2
+    player_object.y = world_true_size / 2
 }
 
 const REPUTATION_THRESHOLD = {
@@ -200,26 +198,10 @@ function init_dungeon() {
     bosses.push(master)
 }
 
-function enter_realm(realm: REALM) {
-    reset()
-
-    switch (realm) {
-        case REALM.CREATURA: {
-            init_creatura()
-            break;
-        }
-        case REALM.DUNGEON: {
-            init_dungeon()
-            break;
-        }
-    }
-}
-
 let soul_counter = document.getElementById("souls-counter")! as HTMLDivElement;
 let loan_counter = document.getElementById("loan-counter")! as HTMLDivElement;
 let loan_payment_counter= document.getElementById("expected-loan-payment")! as HTMLDivElement;
 let cashback_counter = document.getElementById("cashback")! as HTMLDivElement;
-
 
 function change_souls(ds) {
     souls += ds
@@ -346,14 +328,10 @@ breach_tier_button.onclick = () => {
     }
 }
 
-let dungeon_button  = document.getElementById("enter-dungeon")! as HTMLButtonElement
 let fields_button = document.getElementById("enter-fields")! as HTMLButtonElement
 
-dungeon_button.onclick = () => {
-    enter_realm(REALM.DUNGEON)
-}
 fields_button.onclick = () => {
-    enter_realm(REALM.CREATURA)
+    reset()
 }
 
 function new_object(x, y, w, h, texture) {
@@ -572,7 +550,7 @@ function update_boss(timer: number) {
         }
     }
     if (reset_flag)
-        enter_realm(REALM.CREATURA)
+        reset()
 }
 
 function clear_enemies() {
@@ -1027,7 +1005,7 @@ function main() {
         },
     }
 
-    enter_realm(REALM.CREATURA)
+    generate_world(world_description)
 
     const buffers = initBuffers(gl)
     // reset_buffers(gl, buffers, game_objects)
@@ -1135,7 +1113,7 @@ function main() {
 
         drawScene(
             gl, programInfo, programAuraInfo, buffers,
-            game_objects, world, explosions, enemies, bosses, player, aura_range(),
+            game_objects, world_description, world, explosions, enemies, bosses, player, aura_range(),
             camera_x, camera_y, t,
             1 + Math.min(100, 0.01 * rampage) * (Math.sin(t / 10) + 2),
             textures, textures[bg_texture]

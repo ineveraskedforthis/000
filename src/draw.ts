@@ -1,8 +1,8 @@
-import { ChunkData, Creation, DungeonMaster, Explosion, GameObject, Mage, WorldDescription } from "./types";
-import { get_chunk } from "./world";
+import { ChunkData, Creation, DungeonMaster, Explosion, GameObject, Mage, WorldDescription } from "./types.js";
+import { get_chunk } from "./world.js";
 
 export function drawScene(
-    gl: WebGLRenderingContext,
+    gl: WebGLRenderingContext|null,
     programInfo,
     programAuraInfo,
     buffers,
@@ -18,6 +18,7 @@ export function drawScene(
     textures: WebGLTexture[],
     bg_texture: WebGLTexture
 ) {
+    if (gl == null) return;
     let canvas = gl.canvas as HTMLCanvasElement;
 
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
