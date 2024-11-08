@@ -82,6 +82,7 @@ export interface Spell {
 
 export interface Explosion {
     damage: number
+    max_radius: number
     inner_radius: number
     outer_radius: number
     x: number

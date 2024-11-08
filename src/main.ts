@@ -5,8 +5,9 @@ import { drawScene } from "./draw.js";
 import { Breach, ChunkData, ControlState, Creation, DungeonMaster, Explosion, GameObject, Mage, NPC, ResetArea, Spell, WorldDescription } from "./types.js";
 import { loadTexture } from "./texture.js";
 import { BIOME, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
-import { get_chunk_index } from "./world.js";
+import { coord_to_index, get_chunk, get_chunk_index } from "./world.js";
 
+const BREACH_SIZE = 50
 
 const player: Mage = {
     spell_chain: 20,
@@ -15,8 +16,8 @@ const player: Mage = {
     spell_cooldown: 0,
 
     blink_cooldown: 0,
-    blink_explosion_damage: 20,
-    blink_explosion_radius: 30,
+    blink_explosion_damage: 10000,
+    blink_explosion_radius: 5,
 
     aura_damage: 100,
     aura_range: 50,
@@ -32,8 +33,8 @@ const player: Mage = {
 }
 
 const world_description : WorldDescription = {
-    size_in_chunks: 500,
-    chunk_size: 100
+    size_in_chunks: 2000,
+    chunk_size: 1000
 }
 
 
@@ -52,7 +53,7 @@ function spawn_breaches(world_description: WorldDescription, cx: number, cy: num
             let x = cx + Math.cos(phi) * r
             let y = cy + Math.sin(phi) * r
 
-            let object = new_object(x, y, 50, 50, TEXTURE_INDEX.BREACH)
+            let object = new_object(x, y, BREACH_SIZE, BREACH_SIZE, TEXTURE_INDEX.BREACH)
 
             let breach : Breach = {
                 index: object,
@@ -205,6 +206,9 @@ let cashback_counter = document.getElementById("cashback")! as HTMLDivElement;
 
 function change_souls(ds) {
     souls += ds
+    if (souls < 0) {
+        loan_souls(-souls)
+    }
     soul_counter.innerHTML = Math.floor(souls).toString()
 }
 
@@ -213,9 +217,10 @@ function update_cashback() {
     cashback_counter.innerHTML = (Math.floor(cashback_rate * 10000) / 100).toString() + "%"
 }
 
+let loan_limit = 100000
+
 function pay_souls(s) {
-    souls -= s
-    souls += cashback_rate * s
+    change_souls(cashback_rate * s - s)
     soul_counter.innerHTML = Math.floor(souls).toString()
 }
 
@@ -223,8 +228,19 @@ function loan_souls(loan: number) {
     change_souls(loan)
     owed_souls += loan
 
+    if (owed_souls > loan_limit) {
+        if (souls == 0) {
+            alert("You have hit souls loan limit and you can't pay it back. You stop existing.")
+            location.reload()
+        } else {
+            let change = Math.min(souls, owed_souls)
+            owed_souls -= change
+            change_souls(-change)
+        }
+    }
+
     update_cashback()
-    loan_counter.innerHTML = owed_souls.toString()
+    loan_counter.innerHTML = Math.floor(owed_souls).toString() + "/" + loan_limit
     loan_payment_counter.innerHTML = loan_payment().toString()
 }
 
@@ -257,75 +273,57 @@ function aura_range() {
 let aura_range_button  = document.getElementById("improve-aura-range")! as HTMLButtonElement
 
 aura_range_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.aura_range += 1
-    }
+    pay_souls(1000)
+    player.aura_range += 1
 }
 let aura_damage_button  = document.getElementById("improve-aura-damage")! as HTMLButtonElement
 
 aura_damage_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.aura_damage += 5
-    }
+    pay_souls(1000)
+    player.aura_damage += 5
 }
 
 let spell_chain_button  = document.getElementById("improve-spell-chain")! as HTMLButtonElement
 spell_chain_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.spell_chain += 2
-    }
+    pay_souls(1000)
+    player.spell_chain += 2
 }
 let spell_damage_button  = document.getElementById("improve-spell-damage")! as HTMLButtonElement
 
 spell_damage_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.spell_damage += 10
-    }
+    pay_souls(1000)
+    player.spell_damage += 10
 }
 
 let blink_damage_button  = document.getElementById("improve-blink-damage")! as HTMLButtonElement
 blink_damage_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.blink_explosion_damage += 30
-    }
+    pay_souls(10000)
+    player.blink_explosion_damage += 500
 }
 
 
 let blink_radius_button  = document.getElementById("improve-blink-radius")! as HTMLButtonElement
 blink_radius_button.onclick = () => {
-    if (souls >= 1000) {
-        pay_souls(1000)
-        player.blink_explosion_radius += 10
-    }
+    pay_souls(10000)
+    player.blink_explosion_radius += 10
 }
 
 let breach_radius_button = document.getElementById("increase-breach-radius")! as HTMLButtonElement
 breach_radius_button.onclick = () => {
-    if (souls >= 3000) {
-        pay_souls(3000)
-        player.breach_radius += 25
-    }
+    pay_souls(3000)
+    player.breach_radius += 25
 }
 
 let breach_waves_button = document.getElementById("increase-breach-waves")! as HTMLButtonElement
 breach_waves_button.onclick = () => {
-    if (souls >= 3000) {
-        pay_souls(3000)
-        player.breach_waves += 1
-    }
+    pay_souls(3000)
+    player.breach_waves += 1
 }
 
 let breach_tier_button = document.getElementById("increase-souls-quality")! as HTMLButtonElement
 breach_tier_button.onclick = () => {
-    if (souls >= 5000) {
-        pay_souls(5000)
-        player.souls_quality += 1
-    }
+    pay_souls(5000)
+    player.souls_quality += 1
 }
 
 
@@ -400,7 +398,6 @@ function closest_enemy_to_point(x: number, y: number, ignored: Record<number, bo
 
 function blink() {
     if (player.blink_cooldown > 0) return
-    if (souls < 500) return
     pay_souls(500)
 
     const player_object = game_objects[player.index]
@@ -412,7 +409,8 @@ function blink() {
 
     let explosion: Explosion = {
         inner_radius: 0,
-        outer_radius: player.blink_explosion_radius,
+        outer_radius: 10,
+        max_radius: player.blink_explosion_radius,
         damage: player.blink_explosion_damage,
         x: closest.x,
         y: closest.y
@@ -579,6 +577,10 @@ function update_game_state(timer) {
 
     for (let item of explosions) {
         if (item.damage <= 0) break;
+
+        //check closest chunks
+
+
         for (let enemy of enemies) {
             if (enemy.dead) continue;
 
@@ -594,12 +596,31 @@ function update_game_state(timer) {
             if (enemy.dead) {
                 let explosion: Explosion = {
                     inner_radius: 0,
-                    outer_radius: player.blink_explosion_radius,
+                    outer_radius: 0,
+                    max_radius: player.blink_explosion_radius,
                     damage: player.blink_explosion_damage,
                     x: b.x,
                     y: b.y
                 }
                 explosions.push(explosion)
+            }
+        }
+
+        let chunk = get_chunk(world_description, item.x, item.y)
+
+        for (let i = chunk[0] - 1; i <= chunk[0] + 1; i++) {
+            for (let j = chunk[1] - 1; j <= chunk[1] + 1; j++) {
+                for (let breach of world[coord_to_index(world_description, chunk)].breaches) {
+                    if (breach.radius != 0) continue
+
+                    let b = game_objects[breach.index]
+
+                    let rsquare = (b.x - item.x) * (b.x - item.x) + (b.y - item.y) * (b.y - item.y);
+
+                    if (rsquare > (item.outer_radius + BREACH_SIZE) * (item.outer_radius + BREACH_SIZE)) continue;
+
+                    open_breach(breach)
+                }
             }
         }
     }
@@ -609,32 +630,42 @@ function breach_cost() {
     return 1000 * player.breach_waves + player.breach_radius
 }
 
+
+function open_breach(item: Breach) {
+    console.log("open breach " + item.index)
+    let a = game_objects[item.index]
+    a.texture_id = TEXTURE_INDEX.BREACH_DISABLED
+    item.radius = 100
+    pay_souls(breach_cost())
+    for (let wave = 0; wave < player.breach_waves; wave ++) {
+        let radius = 100 + 100 * wave
+        for (let i = 0; i < 40 / (wave + 1); i++) {
+            let phi = Math.random() * Math.PI * 2
+            let r = radius - Math.random() * Math.random() * 50
+
+            let x = r * Math.cos(phi)
+            let y = r * Math.sin(phi)
+
+            create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20)
+        }
+    }
+    console.log("breach was opened")
+}
+
 function open_breaches() {
-    for (let chunk of world){
-        for (let item of chunk.breaches) {
-            if (item.radius > 0) continue;
-            if (souls < breach_cost()) continue;
+    let chunk_coord = get_chunk(world_description, player_object.x, player_object.y)
 
-            let a = game_objects[item.index]
-            let b = game_objects[player.index]
+    for (let i = chunk_coord[0] - 1; i <= chunk_coord[0] + 1; i++) {
+        for (let j = chunk_coord[0] - 1; j <= chunk_coord[0] + 1; j++) {
+            let chunk = world[coord_to_index(world_description, chunk_coord)]
+            for (let item of chunk.breaches) {
+                if (item.radius > 0) continue;
 
+                let a = game_objects[item.index]
+                let b = game_objects[player.index]
 
-
-            if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
-                a.texture_id = TEXTURE_INDEX.BREACH_DISABLED
-                item.radius = 100
-                pay_souls(breach_cost())
-                for (let wave = 0; wave < player.breach_waves; wave ++) {
-                    let radius = 100 + 100 * wave
-                    for (let i = 0; i < 40 / (wave + 1); i++) {
-                        let phi = Math.random() * Math.PI * 2
-                        let r = radius - Math.random() * Math.random() * 50
-
-                        let x = r * Math.cos(phi)
-                        let y = r * Math.sin(phi)
-
-                        create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20)
-                    }
+                if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
+                    open_breach(item)
                 }
             }
         }
@@ -1061,10 +1092,6 @@ function main() {
         if (current_season > banking_season_length) {
             current_season -= banking_season_length
             update_loan_payment()
-            if (souls < 0) {
-                alert("Not enough souls for loan payment. You do not exist.")
-                location.reload()
-            }
         }
         payment_timer.innerHTML = Math.floor((banking_season_length - current_season) / 1000).toString()
 
@@ -1073,13 +1100,17 @@ function main() {
         // console.log(game_objects)
 
         for (let item of explosions) {
-            if (item.damage <= 0) continue
             let inner_ratio = 1 - Math.min(item.damage / player.blink_explosion_damage, 1)
 
-            item.outer_radius += 10 * elapsed * 0.001
+            if (inner_ratio > 0.999)  {
+                item.damage = 0
+                continue
+            }
+
+            item.outer_radius += 0.01 * elapsed * item.max_radius
             item.inner_radius = inner_ratio * item.outer_radius
 
-            item.damage *= Math.exp(- elapsed * 0.01)
+            item.damage *= Math.exp(-elapsed * 0.01)
         }
 
         rampage *= Math.exp(- elapsed * 0.01)
@@ -1110,7 +1141,7 @@ function main() {
             gl, programInfo, programAuraInfo, buffers,
             game_objects, world_description, world, explosions, enemies, bosses, player, aura_range(),
             camera_x, camera_y, t,
-            1 + Math.min(100, 0.01 * rampage) * (Math.sin(t / 10) + 2),
+            1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01,
             textures, textures[bg_texture]
         )
 

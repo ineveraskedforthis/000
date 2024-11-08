@@ -20,7 +20,7 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, game_state,
     const fieldOfView = (45 * Math.PI) / 180; // in radians
     const aspect = canvas.clientWidth / canvas.clientHeight;
     const zNear = 0.01;
-    const zFar = 2000.0;
+    const zFar = 20000.0;
     const projectionMatrix = mat4.create();
     // note: glMatrix always has the first argument
     // as the destination to receive the result.
