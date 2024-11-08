@@ -252,10 +252,6 @@ breach_tier_button.onclick = () => {
         player.souls_quality += 1;
     }
 };
-let fields_button = document.getElementById("enter-fields");
-fields_button.onclick = () => {
-    reset();
-};
 function new_object(x, y, w, h, texture) {
     for (let i = 0; i < game_objects.length; i++) {
         if (game_objects[i].hidden) {

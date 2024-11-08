@@ -328,11 +328,6 @@ breach_tier_button.onclick = () => {
     }
 }
 
-let fields_button = document.getElementById("enter-fields")! as HTMLButtonElement
-
-fields_button.onclick = () => {
-    reset()
-}
 
 function new_object(x, y, w, h, texture) {
     for (let i = 0; i < game_objects.length; i++) {
