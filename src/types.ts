@@ -14,13 +14,17 @@ export interface Mage {
     aura_range: number
     aura_active: boolean
 
-    index: number,
+    object: GameObject,
     cast_speed: number,
 
     breach_radius: number
     breach_waves: number
 
     souls_quality: number
+}
+
+export interface UIDEnrichedObject {
+    uid: number
 }
 
 export interface NPC {
@@ -37,14 +41,14 @@ export interface ResetArea {
     inner_radius: number
 }
 
-export interface DungeonMaster {
+export interface DungeonMaster extends UIDEnrichedObject {
     phase: number
 
-    index_body: number
-    index_flame: number
-    enemy: number
+    index_body: GameObjectReference
+    index_flame: GameObjectReference
+    enemy: EnemyReference
 
-    adds: number[]
+    adds: EnemyReference[]
     areas: ResetArea[]
 }
 
@@ -56,11 +60,11 @@ export interface ControlState {
     aura_pressed: boolean
 }
 
-export interface Creation {
+export interface Creation extends UIDEnrichedObject {
     hp: number
     max_hp: number
 
-    index: number
+    index: GameObjectReference
     dead: boolean
     target_x: number
     target_y: number
@@ -70,8 +74,8 @@ export interface Creation {
     destroy_on_reaching_target: boolean
 }
 
-export interface Spell {
-    index: number
+export interface Spell extends UIDEnrichedObject {
+    index: GameObjectReference
 
     damage: number
     time_left: number
@@ -80,18 +84,30 @@ export interface Spell {
     shot_indices: Record<number, boolean>
 }
 
-export interface Explosion {
+export interface Explosion extends UIDEnrichedObject {
     damage: number
     max_radius: number
     inner_radius: number
     outer_radius: number
+
+    prev_inner_radius: number
     x: number
     y: number
 }
 
-export interface Breach {
-    index: number
+export interface Breach extends UIDEnrichedObject {
+    index: GameObjectReference
     radius: number
+}
+
+export interface GameObjectReference {
+    index: number,
+    chunk: number
+}
+
+export interface EnemyReference {
+    index: number,
+    chunk: number
 }
 
 export interface GameObject {
@@ -101,9 +117,7 @@ export interface GameObject {
     h: number
     dx: number
     dy: number
-
     texture_id: number
-
     hidden: boolean
 }
 
@@ -111,9 +125,12 @@ export interface ChunkData {
     biome: BIOME
     breaches: Breach[]
     passive_objects: GameObject[]
+    game_objects: GameObject[]
+    enemies: Creation[]
 }
 
 export interface WorldDescription {
     size_in_chunks: number
     chunk_size: number,
+    unused_uid: number,
 }

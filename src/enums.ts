@@ -6,7 +6,9 @@ export enum TEXTURE_INDEX {
     BG_CREATURA = 1002,
 
     BOSS_DUNGEON_BODY = 2001,
-    BOSS_DUNGEON_FLAME = 2002
+    BOSS_DUNGEON_FLAME = 2002,
+
+    BASIC_SPELL = 12
 }
 
 export enum BIOME {

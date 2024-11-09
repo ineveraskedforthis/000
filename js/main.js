@@ -2,7 +2,7 @@ import { initBuffers } from "./init_buffers.js";
 import { drawScene } from "./draw.js";
 import { loadTexture } from "./texture.js";
 import { BIOME, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
-import { coord_to_index, get_chunk, get_chunk_index } from "./world.js";
+import { for_chunks_in_radius, g_uid, get_chunk, get_chunk_index, get_object } from "./world.js";
 const BREACH_SIZE = 50;
 const player = {
     spell_chain: 20,
@@ -15,34 +15,48 @@ const player = {
     aura_damage: 100,
     aura_range: 50,
     aura_active: false,
-    index: 0,
     cast_speed: 0.005,
+    object: {
+        x: 0, y: 0, w: 5, h: 20, texture_id: 10, dx: 0, dy: 0, hidden: false
+    },
     breach_radius: 50,
     breach_waves: 1,
     souls_quality: 1,
 };
 const world_description = {
-    size_in_chunks: 2000,
-    chunk_size: 1000
+    size_in_chunks: 200,
+    chunk_size: 1000,
+    unused_uid: 0
 };
 const world_true_size = world_description.size_in_chunks * world_description.chunk_size;
 const world = [];
-const game_objects = [];
+function new_breach(world_description, x, y) {
+    if (x <= 0)
+        return;
+    if (x >= world_true_size)
+        return;
+    if (y <= 0)
+        return;
+    if (y >= world_true_size)
+        return;
+    let object = new_object(world_description, x, y, BREACH_SIZE, BREACH_SIZE, TEXTURE_INDEX.BREACH);
+    let breach = {
+        index: object,
+        radius: 0,
+        uid: g_uid(world_description)
+    };
+    let chunk = get_chunk_index(world_description, x, y);
+    world[chunk].breaches.push(breach);
+}
 function spawn_breaches(world_description, cx, cy, intensity) {
     // start with basic circles
     while (intensity > 0) {
-        for (let i = 0; i < 10 * intensity; i++) {
-            let phi = i / 10 / intensity * Math.PI * 2;
-            let r = intensity * 200 + 100;
+        for (let i = 0; i < 10; i++) {
+            let phi = i / 10 * Math.PI * 2;
+            let r = intensity * 150 + 100;
             let x = cx + Math.cos(phi) * r;
             let y = cy + Math.sin(phi) * r;
-            let object = new_object(x, y, BREACH_SIZE, BREACH_SIZE, TEXTURE_INDEX.BREACH);
-            let breach = {
-                index: object,
-                radius: 0
-            };
-            let chunk = get_chunk_index(world_description, x, y);
-            world[chunk].breaches.push(breach);
+            new_breach(world_description, x, y);
         }
         intensity -= 1;
     }
@@ -53,18 +67,22 @@ function generate_world(world_description) {
             world[i * world_description.size_in_chunks + j] = {
                 biome: BIOME.SOULS_PLANES,
                 breaches: [],
-                passive_objects: []
+                passive_objects: [],
+                game_objects: [],
+                enemies: []
             };
         }
     }
-    spawn_breaches(world_description, world_true_size / 2, world_true_size / 2, 5);
+    for (let i = 0; i < 100; i++) {
+        spawn_breaches(world_description, world_true_size * Math.random(), world_true_size * Math.random(), Math.floor(Math.random() * 10) + 1);
+    }
+    for (let i = 0; i < 100000; i++) {
+        new_breach(world_description, world_true_size * Math.random(), world_true_size * Math.random());
+    }
 }
-let id = new_object(0, 0, 5, 20, 10);
-player.index = id;
-let player_object = game_objects[player.index];
+let player_object = player.object;
 player_object.x = world_true_size / 2;
 player_object.y = world_true_size / 2;
-const enemies = [];
 const projectiles = [];
 const explosions = [];
 const bosses = [];
@@ -78,13 +96,9 @@ let cores = 0;
 let rampage = 0;
 let bg_texture = TEXTURE_INDEX.BG_CREATURA;
 function reset() {
-    enemies.length = 0;
-    projectiles.length = 0;
-    explosions.length = 0;
-    bosses.length = 0;
-    game_objects.length = 1;
     player_object.x = world_true_size / 2;
     player_object.y = world_true_size / 2;
+    change_souls(-20000);
 }
 const REPUTATION_THRESHOLD = {
     HATEFUL: -1,
@@ -113,41 +127,31 @@ function quest_bring_souls_complete() {
     change_souls(-50000);
     soul_keeper.souls += 50000;
 }
-function init_creatura() {
-    bg_texture = TEXTURE_INDEX.BG_CREATURA;
-    for (let i = 0; i < 100; i++) {
-        let x = (Math.random() - 0.5) * 1000;
-        let y = (Math.random() - 0.5) * 1000;
-        let w = 20 + Math.random() * 5;
-        let h = 20 + Math.random() * 5;
-        new_object(x, y, w, h, 20);
-    }
-}
-function init_dungeon() {
-    bg_texture = TEXTURE_INDEX.BG_DUNGEON;
-    let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME);
-    let body = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY);
-    let enemy_body = {
-        hp: 1000000,
-        max_hp: 1000000,
-        index: body,
-        dead: false,
-        target_x: 50,
-        target_y: 50,
-        destroy_on_reaching_target: false,
-        speed: 0
-    };
-    enemies.push(enemy_body);
-    let master = {
-        phase: 0,
-        index_body: body,
-        index_flame: flames,
-        enemy: enemies.length - 1,
-        adds: [],
-        areas: []
-    };
-    bosses.push(master);
-}
+// function init_dungeon() {
+//     bg_texture = TEXTURE_INDEX.BG_DUNGEON
+//     let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME)
+//     let body = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY)
+//     let enemy_body : Creation = {
+//         hp: 1000000,
+//         max_hp: 1000000,
+//         index: body,
+//         dead: false,
+//         target_x: 50,
+//         target_y: 50,
+//         destroy_on_reaching_target: false,
+//         speed: 0
+//     }
+//     enemies.push(enemy_body)
+//     let master : DungeonMaster = {
+//         phase: 0,
+//         index_body: body,
+//         index_flame: flames,
+//         enemy: enemies.length - 1,
+//         adds: [],
+//         areas: []
+//     }
+//     bosses.push(master)
+// }
 let soul_counter = document.getElementById("souls-counter");
 let loan_counter = document.getElementById("loan-counter");
 let loan_payment_counter = document.getElementById("expected-loan-payment");
@@ -249,71 +253,86 @@ breach_tier_button.onclick = () => {
     pay_souls(5000);
     player.souls_quality += 1;
 };
-function new_object(x, y, w, h, texture) {
-    for (let i = 0; i < game_objects.length; i++) {
-        if (game_objects[i].hidden) {
-            game_objects[i].x = x;
-            game_objects[i].y = y;
-            game_objects[i].dx = 0;
-            game_objects[i].dy = 0;
-            game_objects[i].w = w;
-            game_objects[i].h = h;
-            game_objects[i].texture_id = texture;
-            game_objects[i].hidden = false;
-            return i;
+function new_object(wd, x, y, w, h, texture) {
+    let chunk = get_chunk_index(wd, x, y);
+    for (let i = 0; i < world[chunk].game_objects.length; i++) {
+        let object = world[chunk].game_objects[i];
+        if (object.hidden) {
+            object.x = x;
+            object.y = y;
+            object.dx = 0;
+            object.dy = 0;
+            object.w = w;
+            object.h = h;
+            object.texture_id = texture;
+            object.hidden = false;
+            return {
+                chunk: chunk,
+                index: i
+            };
         }
     }
-    game_objects.push({ x: x, y: y, w: w, h: h, dx: 0, dy: 0, hidden: false, texture_id: texture });
-    return game_objects.length - 1;
+    world[chunk].game_objects.push({ x: x, y: y, w: w, h: h, dx: 0, dy: 0, hidden: false, texture_id: texture });
+    return {
+        chunk: chunk,
+        index: world[chunk].game_objects.length - 1
+    };
 }
 function create_enemy(x, y, w, h, target_x, target_y, speed) {
-    let id = new_object(x, y, w, h, 1 + Math.floor(Math.random() * 6));
-    enemies.push({
+    let ref = new_object(world_description, x, y, w, h, 1 + Math.floor(Math.random() * 6));
+    world[ref.chunk].enemies.push({
         hp: 500,
         max_hp: 500,
-        index: id,
+        index: ref,
         dead: false,
         target_x: target_x,
         target_y: target_y,
         destroy_on_reaching_target: true,
-        speed: speed
+        speed: speed,
+        uid: g_uid(world_description)
     });
-    return enemies.length - 1;
+    return {
+        chunk: ref.chunk,
+        index: world[ref.chunk].enemies.length - 1
+    };
 }
 function change_hp(creation, x) {
     creation.hp += x;
     if (creation.hp <= 0) {
         creation.dead = true;
-        game_objects[creation.index].hidden = true;
+        get_object(world, creation.index).hidden = true;
         change_souls(30 * player.souls_quality);
         rampage += 1;
     }
 }
 loan_souls(10000);
 change_souls(-5000);
-function closest_enemy_to_point(x, y, ignored) {
-    let min_distance = player.spell_range;
+function closest_enemy_to_point(x, y, ignored, max_radius) {
+    let min_distance = max_radius;
     let closest = null;
-    for (const enemy of enemies) {
-        const object = game_objects[enemy.index];
-        if (enemy.dead)
-            continue;
-        if (ignored[enemy.index])
-            continue;
-        let dist = Math.abs(x - object.x) + Math.abs(y - object.y);
-        if (dist < min_distance) {
-            min_distance = dist;
-            closest = object;
+    let center = get_chunk(world_description, x, y);
+    let window_size = max_radius * 2 / world_description.chunk_size;
+    for_chunks_in_radius(world, world_description, window_size, center[0], center[1], (chunk) => {
+        for (const enemy of chunk.enemies) {
+            const object = get_object(world, enemy.index);
+            if (enemy.dead)
+                continue;
+            if (ignored[enemy.uid])
+                continue;
+            let dist = Math.abs(x - object.x) + Math.abs(y - object.y);
+            if (dist < min_distance) {
+                min_distance = dist;
+                closest = object;
+            }
         }
-    }
+    });
     return closest;
 }
 function blink() {
     if (player.blink_cooldown > 0)
         return;
     pay_souls(500);
-    const player_object = game_objects[player.index];
-    let closest = closest_enemy_to_point(player_object.x, player_object.y, []);
+    let closest = closest_enemy_to_point(player_object.x, player_object.y, [], 1000);
     if (closest == null)
         return;
     player_object.x = closest.x;
@@ -324,7 +343,9 @@ function blink() {
         max_radius: player.blink_explosion_radius,
         damage: player.blink_explosion_damage,
         x: closest.x,
-        y: closest.y
+        y: closest.y,
+        prev_inner_radius: 0,
+        uid: g_uid(world_description)
     };
     explosions.push(explosion);
     player.blink_cooldown = 1 / player.cast_speed;
@@ -336,71 +357,80 @@ function aura_update() {
     }
     player.aura_active = true;
     pay_souls(0.1);
-    const player_object = game_objects[player.index];
-    for (const item of enemies) {
-        const object = game_objects[item.index];
-        if (item.dead)
-            continue;
-        let dx = player_object.x - object.x;
-        let dy = player_object.y - object.y;
-        let dist = dx * dx + dy * dy;
-        if (dist < aura_range() * aura_range()) {
-            change_hp(item, -player.aura_damage);
+    let player_chunk = get_chunk(world_description, player_object.x, player_object.y);
+    for_chunks_in_radius(world, world_description, aura_range() * 2 / world_description.chunk_size + 1, player_chunk[0], player_chunk[1], (chunk, x, y) => {
+        for (const item of chunk.enemies) {
+            const object = get_object(world, item.index);
+            if (item.dead)
+                continue;
+            let dx = player_object.x - object.x;
+            let dy = player_object.y - object.y;
+            let dist = dx * dx + dy * dy;
+            if (dist < aura_range() * aura_range()) {
+                change_hp(item, -player.aura_damage);
+            }
         }
-    }
+    });
 }
 function projectiles_update() {
     for (let i = 0; i < projectiles.length; i++) {
-        for (let j = 0; j < enemies.length; j++) {
-            let projectile = projectiles[i];
-            let enemy = enemies[j];
-            if (projectile.dead)
-                continue;
-            if (enemy.dead)
-                continue;
-            if (projectile.shot_indices[enemy.index])
-                continue;
-            let a = game_objects[projectile.index];
-            let b = game_objects[enemy.index];
-            if (a.x + a.w < b.x - b.w)
-                continue;
-            if (a.x - a.w > b.x + b.w)
-                continue;
-            if (a.y + a.h < b.y - b.h)
-                continue;
-            if (a.y - a.h > b.y + b.h)
-                continue;
-            change_hp(enemy, -projectile.damage);
-            if (projectile.chained_times >= player.spell_chain) {
-                projectile.dead = true;
-                game_objects[projectile.index].hidden = true;
+        let projectile = projectiles[i];
+        if (projectile.dead)
+            continue;
+        let a = get_object(world, projectile.index);
+        let chunk_coord = get_chunk(world_description, a.x, a.y);
+        for_chunks_in_radius(world, world_description, 100 / world_description.chunk_size + 1, chunk_coord[0], chunk_coord[1], (chunk, x, y) => {
+            if (chunk == undefined) {
+                console.log(x, y);
+                console.log(a);
             }
-            else {
-                projectile.shot_indices[enemy.index] = true;
-                projectile.chained_times += 1;
-                direct_spell_toward_closest_enemy(projectile);
+            for (let j = 0; j < chunk.enemies.length; j++) {
+                let enemy = chunk.enemies[j];
+                if (enemy.dead)
+                    continue;
+                if (projectile.shot_indices[enemy.uid])
+                    continue;
+                let b = get_object(world, enemy.index);
+                if (a.x + a.w < b.x - b.w)
+                    continue;
+                if (a.x - a.w > b.x + b.w)
+                    continue;
+                if (a.y + a.h < b.y - b.h)
+                    continue;
+                if (a.y - a.h > b.y + b.h)
+                    continue;
+                change_hp(enemy, -projectile.damage);
+                if (projectile.chained_times >= player.spell_chain) {
+                    projectile.dead = true;
+                    a.hidden = true;
+                }
+                else {
+                    projectile.shot_indices[enemy.uid] = true;
+                    projectile.chained_times += 1;
+                    direct_spell_toward_closest_enemy(projectile);
+                }
             }
-        }
+        });
     }
 }
 function update_boss(timer) {
-    let player_object = game_objects[player.index];
     let reset_flag = false;
     for (let item of bosses) {
-        let boss_object = game_objects[item.index_body];
-        let boss_entity = enemies[item.enemy];
+        let boss_object = get_object(world, item.index_body);
+        let boss_entity = world[item.enemy.chunk].enemies[item.enemy.index];
         if (boss_entity == undefined || boss_entity.dead) {
             item.phase = -1;
             continue;
         }
         while (item.adds.length < 30) {
             let index = create_enemy(boss_object.x + 50, boss_object.y + 50, 20, 20, boss_object.x, boss_object.y, 3);
-            enemies[index].destroy_on_reaching_target = false;
+            world[index.chunk].enemies[index.index].destroy_on_reaching_target = false;
             item.adds.push(index);
         }
         let to_remove = [];
         for (let i = 0; i < 30; i++) {
-            let add = enemies[item.adds[i]];
+            let ref = item.adds[i];
+            let add = world[ref.chunk].enemies[ref.index];
             if (add == undefined || add.dead) {
                 to_remove.push(i);
             }
@@ -434,15 +464,7 @@ function update_boss(timer) {
     if (reset_flag)
         reset();
 }
-function clear_enemies() {
-    enemies.sort((a, b) => Number(a.dead) - Number(b.dead));
-    let j = 0;
-    for (let enemy of enemies) {
-        if (enemy.dead)
-            continue;
-        j++;
-    }
-    enemies.length = j;
+function clear_enemies(chunk) {
 }
 function clear_explosions() {
     explosions.sort((a, b) => -a.damage + b.damage);
@@ -459,56 +481,57 @@ function update_game_state(timer) {
     open_breaches();
     aura_update();
     projectiles_update();
-    clear_enemies();
+    // clear_enemies();
     clear_explosions();
     for (let item of explosions) {
         if (item.damage <= 0)
             break;
+        let item_chunk = get_chunk(world_description, item.x, item.y);
         //check closest chunks
-        for (let enemy of enemies) {
-            if (enemy.dead)
-                continue;
-            let b = game_objects[enemy.index];
-            let rsquare = (b.x - item.x) * (b.x - item.x) + (b.y - item.y) * (b.y - item.y);
-            if (rsquare < item.inner_radius * item.inner_radius)
-                continue;
-            if (rsquare > item.outer_radius * item.outer_radius)
-                continue;
-            change_hp(enemy, -item.damage);
-            if (enemy.dead) {
-                let explosion = {
-                    inner_radius: 0,
-                    outer_radius: 0,
-                    max_radius: player.blink_explosion_radius,
-                    damage: player.blink_explosion_damage,
-                    x: b.x,
-                    y: b.y
-                };
-                explosions.push(explosion);
-            }
-        }
-        let chunk = get_chunk(world_description, item.x, item.y);
-        for (let i = chunk[0] - 1; i <= chunk[0] + 1; i++) {
-            for (let j = chunk[1] - 1; j <= chunk[1] + 1; j++) {
-                for (let breach of world[coord_to_index(world_description, chunk)].breaches) {
-                    if (breach.radius != 0)
-                        continue;
-                    let b = game_objects[breach.index];
-                    let rsquare = (b.x - item.x) * (b.x - item.x) + (b.y - item.y) * (b.y - item.y);
-                    if (rsquare > (item.outer_radius + BREACH_SIZE) * (item.outer_radius + BREACH_SIZE))
-                        continue;
-                    open_breach(breach);
+        for_chunks_in_radius(world, world_description, (item.outer_radius * 1.4) / world_description.chunk_size + 2, item_chunk[0], item_chunk[1], (chunk) => {
+            for (let enemy of chunk.enemies) {
+                if (enemy.dead)
+                    continue;
+                let b = get_object(world, enemy.index);
+                let rsquare = (b.x - item.x) * (b.x - item.x) + (b.y - item.y) * (b.y - item.y);
+                // if (rsquare < item.prev_inner_radius * item.prev_inner_radius - 40) continue
+                if (rsquare > item.outer_radius * item.outer_radius + 20)
+                    continue;
+                change_hp(enemy, -item.damage);
+                if (enemy.dead) {
+                    let explosion = {
+                        inner_radius: 0,
+                        outer_radius: 0,
+                        prev_inner_radius: 0,
+                        max_radius: item.max_radius * 0.5,
+                        damage: player.blink_explosion_damage,
+                        x: b.x,
+                        y: b.y,
+                        uid: g_uid(world_description)
+                    };
+                    explosions.push(explosion);
                 }
             }
-        }
+        });
+        for_chunks_in_radius(world, world_description, (item.outer_radius + BREACH_SIZE * 2) / world_description.chunk_size + 1, item_chunk[0], item_chunk[1], (chunk) => {
+            for (let breach of chunk.breaches) {
+                if (breach.radius != 0)
+                    continue;
+                let b = get_object(world, breach.index);
+                let rsquare = (b.x - item.x) * (b.x - item.x) + (b.y - item.y) * (b.y - item.y);
+                if (rsquare > (item.outer_radius + BREACH_SIZE) * (item.outer_radius + BREACH_SIZE))
+                    continue;
+                open_breach(breach);
+            }
+        });
+        item.prev_inner_radius = item.inner_radius;
     }
 }
 function breach_cost() {
     return 1000 * player.breach_waves + player.breach_radius;
 }
 function open_breach(item) {
-    console.log("open breach " + item.index);
-    let a = game_objects[item.index];
+    let a = get_object(world, item.index);
     a.texture_id = TEXTURE_INDEX.BREACH_DISABLED;
     item.radius = 100;
     pay_souls(breach_cost());
@@ -519,47 +542,38 @@ function open_breach(item) {
             let r = radius - Math.random() * Math.random() * 50;
             let x = r * Math.cos(phi);
             let y = r * Math.sin(phi);
+            if (a.x + x <= 0)
+                continue;
+            if (a.y + y <= 0)
+                continue;
+            if (a.x + x >= world_true_size)
+                continue;
+            if (a.y + y >= world_true_size)
+                continue;
             create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20);
         }
     }
-    console.log("breach was opened");
 }
 function open_breaches() {
+    let b = player_object;
     let chunk_coord = get_chunk(world_description, player_object.x, player_object.y);
-    for (let i = chunk_coord[0] - 1; i <= chunk_coord[0] + 1; i++) {
-        for (let j = chunk_coord[0] - 1; j <= chunk_coord[0] + 1; j++) {
-            let chunk = world[coord_to_index(world_description, chunk_coord)];
-            for (let item of chunk.breaches) {
-                if (item.radius > 0)
-                    continue;
-                let a = game_objects[item.index];
-                let b = game_objects[player.index];
-                if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
-                    open_breach(item);
-                }
+    for_chunks_in_radius(world, world_description, player.breach_radius * 2 + 20, chunk_coord[0], chunk_coord[1], (chunk) => {
+        for (let item of chunk.breaches) {
+            if (item.radius > 0)
+                continue;
+            let a = get_object(world, item.index);
+            if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
+                open_breach(item);
             }
         }
-    }
+    });
 }
 function direct_spell_toward_closest_enemy(item) {
-    let object = game_objects[item.index];
+    let object = get_object(world, item.index);
     let x = object.x;
     let y = object.y;
     let ignored = item.shot_indices;
-    let min_distance = player.spell_range;
-    let closest = null;
-    for (const enemy of enemies) {
-        const object = game_objects[enemy.index];
-        if (enemy.dead)
-            continue;
-        if (ignored[enemy.index])
-            continue;
-        let dist = Math.abs(x - object.x) + Math.abs(y - object.y);
-        if (dist < min_distance) {
-            min_distance = dist;
-            closest = object;
-        }
-    }
+    let closest = closest_enemy_to_point(x, y, ignored, player.spell_range * 1.2);
     if (closest == null) {
         item.dead = true;
         return;
@@ -567,8 +581,14 @@ function direct_spell_toward_closest_enemy(item) {
     let dx = closest.x - x;
     let dy = closest.y - y;
     let norm = Math.sqrt(dx * dx + dy * dy);
-    object.dx = dx / norm * 0.1;
-    object.dy = dy / norm * 0.1;
+    if (norm > 0.01) {
+        object.dx = dx / norm * 0.1;
+        object.dy = dy / norm * 0.1;
+    }
+    else {
+        object.dx = 1;
+        object.dy = 0;
+    }
 }
 // finds the closest enemy and shoots toward them
 function shoot_from_position(x, y) {
@@ -577,29 +597,18 @@ function shoot_from_position(x, y) {
     }
     if (souls < 1)
         return;
-    let min_distance = player.spell_range;
-    let closest = null;
-    for (const enemy of enemies) {
-        const object = game_objects[enemy.index];
-        if (enemy.dead)
-            continue;
-        let dist = Math.abs(x - object.x) + Math.abs(y - object.y);
-        if (dist < min_distance) {
-            min_distance = dist;
-            closest = object;
-        }
-    }
-    if (closest == null) {
+    let closest = closest_enemy_to_point(x, y, {}, player.spell_range * 1.2);
+    if (closest == null)
         return;
-    }
-    let id = new_object(x, y, 5, 5, 12);
+    let id = new_object(world_description, x, y, 5, 5, TEXTURE_INDEX.BASIC_SPELL);
     let item = {
         index: id,
         damage: player.spell_damage,
         dead: false,
         time_left: player.spell_range * 100,
         chained_times: 0,
-        shot_indices: []
+        shot_indices: [],
+        uid: g_uid(world_description)
     };
     projectiles.push(item);
     pay_souls(1);
@@ -717,7 +726,6 @@ const control_state = {
     aura_pressed: false,
 };
 window.addEventListener("keydown", (event) => {
-    let player_object = game_objects[player.index];
     if (event.defaultPrevented) {
         return; // Do nothing if event already handled
     }
@@ -750,7 +758,6 @@ window.addEventListener("keydown", (event) => {
     }
 }, true);
 window.addEventListener("keyup", (event) => {
-    let player_object = game_objects[player.index];
     if (event.defaultPrevented) {
         return; // Do nothing if event already handled
     }
@@ -839,7 +846,7 @@ function main() {
         textures.push(loadTexture(gl, i + ".svg"));
     }
     textures[10] = loadTexture(gl, "character.svg");
-    textures[12] = loadTexture(gl, "flame.svg");
+    textures[TEXTURE_INDEX.BASIC_SPELL] = loadTexture(gl, "flame.svg");
     textures[8000] = loadTexture(gl, "hp-bar.png");
     textures[8001] = loadTexture(gl, "hp-bar-bg.png");
     textures[TEXTURE_INDEX.BREACH] = loadTexture(gl, "breach-active.svg");
@@ -873,6 +880,7 @@ function main() {
         // console.log(game_objects)
         for (let item of explosions) {
             let inner_ratio = 1 - Math.min(item.damage / player.blink_explosion_damage, 1);
+            inner_ratio = inner_ratio * inner_ratio * inner_ratio;
             if (inner_ratio > 0.999) {
                 item.damage = 0;
                 continue;
@@ -888,42 +896,43 @@ function main() {
             update_game_state(t);
         }
         for (let item of bosses) {
-            let body = game_objects[item.index_body];
-            let flame = game_objects[item.index_flame];
+            let body = get_object(world, item.index_body);
+            let flame = get_object(world, item.index_flame);
             flame.y = 10 + Math.sin(t / 200) * 10 + body.y;
         }
-        let player_object = game_objects[player.index];
         player.spell_cooldown = Math.max(0, player.spell_cooldown - elapsed);
         player.blink_cooldown = Math.max(0, player.blink_cooldown - elapsed);
         camera_x = camera_x + (player_object.x - camera_x) * 0.5;
         camera_y = camera_y + (player_object.y - camera_y) * 0.5;
         shoot_from_position(player_object.x, player_object.y);
-        drawScene(gl, programInfo, programAuraInfo, buffers, game_objects, world_description, world, explosions, enemies, bosses, player, aura_range(), camera_x, camera_y, t, 1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01, textures, textures[bg_texture]);
         for (let item of projectiles) {
             if (item.dead)
                 continue;
             item.time_left -= elapsed;
             if (item.time_left < 0) {
                 item.dead = true;
-                game_objects[item.index].hidden = true;
+                get_object(world, item.index).hidden = true;
             }
         }
-        for (let item of enemies) {
-            if (item.dead)
-                continue;
-            let dx = item.target_x - game_objects[item.index].x;
-            let dy = item.target_y - game_objects[item.index].y;
-            let n = Math.sqrt(dx * dx + dy * dy) / item.speed;
-            if ((n < 75) && item.destroy_on_reaching_target) {
-                // console.log("return to the abyss")
-                item.dead = true;
-                game_objects[item.index].hidden = true;
+        let player_chunk = get_chunk(world_description, player_object.x, player_object.y);
+        for_chunks_in_radius(world, world_description, 4000 / world_description.chunk_size + 1, player_chunk[0], player_chunk[1], (chunk) => {
+            for (let item of chunk.enemies) {
+                if (item.dead)
+                    continue;
+                let object = get_object(world, item.index);
+                let dx = item.target_x - object.x;
+                let dy = item.target_y - object.y;
+                let n = Math.sqrt(dx * dx + dy * dy) / item.speed;
+                if ((n < 75) && item.destroy_on_reaching_target) {
+                    item.dead = true;
+                    object.hidden = true;
+                }
+                if (n > 20) {
+                    object.x += (Math.random() - 0.5 + dx / n) * elapsed * 0.1;
+                    object.y += (Math.random() - 0.5 + dy / n) * elapsed * 0.1;
+                }
             }
-            if (n > 20) {
-                game_objects[item.index].x += (Math.random() - 0.5 + dx / n) * elapsed * 0.1;
-                game_objects[item.index].y += (Math.random() - 0.5 + dy / n) * elapsed * 0.1;
-            }
-        }
+        });
         player_object.dx = 0;
         player_object.dy = 0;
         if (control_state.down_pressed) {
@@ -943,10 +952,21 @@ function main() {
             speed = 0.2;
         player_object.dx *= speed;
         player_object.dy *= speed;
-        for (let item of game_objects) {
-            item.x += item.dx * elapsed;
-            item.y += item.dy * elapsed;
-        }
+        let p_chunk = get_chunk(world_description, player_object.x, player.object.y);
+        for_chunks_in_radius(world, world_description, 10, p_chunk[0], p_chunk[1], (chunk) => {
+            for (let j = 0; j < chunk.game_objects.length; j++) {
+                let item = chunk.game_objects[j];
+                item.x += item.dx * elapsed;
+                item.y += item.dy * elapsed;
+                item.x = Math.max(item.x, 0);
+                item.y = Math.max(item.y, 0);
+                item.x = Math.min(item.x, world_true_size);
+                item.y = Math.min(item.y, world_true_size);
+            }
+        });
+        player_object.x += player_object.dx * elapsed;
+        player_object.y += player_object.dy * elapsed;
+        drawScene(gl, programInfo, programAuraInfo, buffers, world_description, world, explosions, bosses, player, aura_range(), camera_x, camera_y, t, 1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01, textures, textures[bg_texture]);
         requestAnimationFrame(update);
     }
     requestAnimationFrame(update);
