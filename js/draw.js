@@ -1,5 +1,6 @@
+import { BIOME, TEXTURE_INDEX } from "./enums.js";
 import { coord_to_index, for_chunks_in_radius, get_chunk, get_object } from "./world.js";
-export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world, explosions, bosses, player, player_aura_range, camera_x, camera_y, time, zoom_mod, textures, bg_texture) {
+export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world, explosions, bosses, player, player_aura_range, camera_x, camera_y, time, zoom_mod, textures) {
     if (gl == null)
         return;
     let canvas = gl.canvas;
@@ -45,6 +46,7 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world
     let chunk_x = chunk[0];
     let chunk_y = chunk[1];
     let render_size = 6;
+    let chunk_side = 5;
     for (let i = -render_size; i <= render_size; i++) {
         for (let j = -render_size; j <= render_size; j++) {
             let x = i + chunk_x;
@@ -57,12 +59,23 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world
                 break;
             if (y >= desc.size_in_chunks)
                 break;
-            gl.uniform2f(programInfo.uniformLocations.position, desc.chunk_size * (i + chunk_x), desc.chunk_size * (j + chunk_y));
-            gl.uniform2f(programInfo.uniformLocations.size, desc.chunk_size, desc.chunk_size);
-            gl.bindTexture(gl.TEXTURE_2D, bg_texture);
-            const vertexCount = 4;
-            const offset = 0;
-            gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+            for (let k = 0; k < chunk_side; k++) {
+                for (let h = 0; h < chunk_side; h++) {
+                    gl.uniform2f(programInfo.uniformLocations.position, desc.chunk_size * (i + chunk_x) + k * desc.chunk_size / chunk_side, desc.chunk_size * (j + chunk_y) + h * desc.chunk_size / chunk_side);
+                    gl.uniform2f(programInfo.uniformLocations.size, desc.chunk_size / chunk_side, desc.chunk_size / chunk_side);
+                    let chunk_index = coord_to_index(desc, [x, y]);
+                    let chunk = world[chunk_index];
+                    if (chunk.biome == BIOME.RED_SOURCE) {
+                        gl.bindTexture(gl.TEXTURE_2D, textures[TEXTURE_INDEX.BG_DUNGEON]);
+                    }
+                    else if (chunk.biome == BIOME.SOULS_PLANES) {
+                        gl.bindTexture(gl.TEXTURE_2D, textures[TEXTURE_INDEX.BG_CREATURA]);
+                    }
+                    const vertexCount = 4;
+                    const offset = 0;
+                    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+                }
+            }
         }
     }
     gl.useProgram(programAuraInfo.program);

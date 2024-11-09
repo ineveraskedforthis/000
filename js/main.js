@@ -62,6 +62,44 @@ function spawn_breaches(world_description, cx, cy, intensity) {
     }
 }
 function generate_world(world_description) {
+    let biomes = [
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.RED_SOURCE
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.RED_SOURCE
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.RED_SOURCE
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.SOULS_PLANES
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.SOULS_PLANES
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.SOULS_PLANES
+        },
+        {
+            x: Math.floor(Math.random() * world_description.size_in_chunks),
+            y: Math.floor(Math.random() * world_description.size_in_chunks),
+            biome: BIOME.SOULS_PLANES
+        },
+    ];
+    let dungeon_biome = [world_description.size_in_chunks / 2, world_description.size_in_chunks / 2];
     for (let i = 0; i < world_description.size_in_chunks; i++) {
         for (let j = 0; j < world_description.size_in_chunks; j++) {
             world[i * world_description.size_in_chunks + j] = {
@@ -71,6 +109,15 @@ function generate_world(world_description) {
                 game_objects: [],
                 enemies: []
             };
+            let closest_biome = BIOME.RED_SOURCE;
+            let min_dist_square = world_description.size_in_chunks * world_description.size_in_chunks;
+            for (let item of biomes) {
+                if ((i - item.x) * (i - item.x) + (j - item.y) * (j - item.y) < min_dist_square) {
+                    closest_biome = item.biome;
+                    min_dist_square = (i - item.x) * (i - item.x) + (j - item.y) * (j - item.y);
+                }
+            }
+            world[i * world_description.size_in_chunks + j].biome = closest_biome;
         }
     }
     for (let i = 0; i < 100; i++) {
@@ -94,7 +141,6 @@ let cashback_rate = 0.05;
 let banking_season_length = 120 * 1000;
 let cores = 0;
 let rampage = 0;
-let bg_texture = TEXTURE_INDEX.BG_CREATURA;
 function reset() {
     player_object.x = world_true_size / 2;
     player_object.y = world_true_size / 2;
@@ -966,7 +1012,7 @@ function main() {
         });
         player_object.x += player_object.dx * elapsed;
         player_object.y += player_object.dy * elapsed;
-        drawScene(gl, programInfo, programAuraInfo, buffers, world_description, world, explosions, bosses, player, aura_range(), camera_x, camera_y, t, 1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01, textures, textures[bg_texture]);
+        drawScene(gl, programInfo, programAuraInfo, buffers, world_description, world, explosions, bosses, player, aura_range(), camera_x, camera_y, t, 1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01, textures);
         requestAnimationFrame(update);
     }
     requestAnimationFrame(update);
