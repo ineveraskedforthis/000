@@ -90,6 +90,8 @@ export interface Explosion extends UIDEnrichedObject {
     inner_radius: number
     outer_radius: number
 
+    multiplier: number
+
     prev_inner_radius: number
     x: number
     y: number

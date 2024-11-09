@@ -391,7 +391,8 @@ function blink() {
         x: closest.x,
         y: closest.y,
         prev_inner_radius: 0,
-        uid: g_uid(world_description)
+        uid: g_uid(world_description),
+        multiplier: 1
     };
     explosions.push(explosion);
     player.blink_cooldown = 1 / player.cast_speed;
@@ -543,19 +544,25 @@ function update_game_state(timer) {
                 // if (rsquare < item.prev_inner_radius * item.prev_inner_radius - 40) continue
                 if (rsquare > item.outer_radius * item.outer_radius + 20)
                     continue;
-                change_hp(enemy, -item.damage);
+                change_hp(enemy, -item.damage * item.multiplier);
                 if (enemy.dead) {
-                    let explosion = {
-                        inner_radius: 0,
-                        outer_radius: 0,
-                        prev_inner_radius: 0,
-                        max_radius: item.max_radius * 0.5,
-                        damage: player.blink_explosion_damage,
-                        x: b.x,
-                        y: b.y,
-                        uid: g_uid(world_description)
-                    };
-                    explosions.push(explosion);
+                    if (Math.sqrt(rsquare) < 0.0000005 * item.outer_radius * Math.log(item.damage + 1) * item.max_radius) {
+                        item.multiplier += 1;
+                    }
+                    else {
+                        let explosion = {
+                            inner_radius: 0,
+                            outer_radius: 0,
+                            prev_inner_radius: 0,
+                            max_radius: item.max_radius * 0.5,
+                            damage: player.blink_explosion_damage,
+                            x: b.x,
+                            y: b.y,
+                            uid: g_uid(world_description),
+                            multiplier: 1
+                        };
+                        explosions.push(explosion);
+                    }
                 }
             }
         });
