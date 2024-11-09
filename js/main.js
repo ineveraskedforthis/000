@@ -154,9 +154,27 @@ const REPUTATION_THRESHOLD = {
     NEUTRAL: 4000,
     RECOGNISED: 10000
 };
+function reputation_word(x) {
+    if (x < REPUTATION_THRESHOLD.HATEFUL) {
+        return "Hated";
+    }
+    if (x < REPUTATION_THRESHOLD.OPPOSED) {
+        return "Opposed";
+    }
+    if (x < REPUTATION_THRESHOLD.COLD) {
+        return "Cold";
+    }
+    if (x < REPUTATION_THRESHOLD.NEUTRAL) {
+        return "Neutral";
+    }
+    if (x < REPUTATION_THRESHOLD.RECOGNISED) {
+        return "Recognised";
+    }
+    return "Guest";
+}
 const soul_keeper = {
     souls: 1000,
-    reputation: 0,
+    reputation: -100,
     x: world_true_size / 2 + 500, y: world_true_size / 2 + 500,
     w: 20, h: 50,
     texture: TEXTURE_INDEX.NPC_1,
@@ -177,6 +195,9 @@ const UPGRADE_QUALITY_OF_SOULS = {
     base_price_souls: 0,
     price_increase_per_level: 100000,
 };
+function reputation_price_modifier(reputation) {
+    return 0.5 + 2500 / (5000 + reputation);
+}
 const npcs = [soul_keeper];
 let focused_npc = null;
 const npc_portrait = document.getElementById("npc-image");
@@ -186,10 +207,17 @@ const npc_response = document.getElementById("npc-response");
 const increase_breach_radius_option = document.createElement("div");
 const increase_breach_waves_option = document.createElement("div");
 const breach_tier_button = document.createElement("div");
+const accept_quest_soul_loan_limit_button = document.createElement("div");
+const QUEST_BRING_SOULS_AMOUNT = 50000;
+const QUEST_BRING_SOULS_REWARD_LOAN_LIMIT = 200000;
+const QUEST_BRING_SOULS_REWARD_REPUTATION = 100;
+accept_quest_soul_loan_limit_button.innerText = `Quest: bring ${Math.floor(QUEST_BRING_SOULS_AMOUNT + 0.5)} souls.
+    Reward: Loan limit is increased by${QUEST_BRING_SOULS_REWARD_LOAN_LIMIT}.
+    Reputation with Soul Keeper is increased by ${QUEST_BRING_SOULS_REWARD_REPUTATION}`;
 function price_radius() {
-    return UPGRADE_BREACH_DETECTION.base_price_souls
+    return Math.floor((UPGRADE_BREACH_DETECTION.base_price_souls
         + UPGRADE_BREACH_DETECTION.price_increase_per_level
-            * player.breach_radius_level;
+            * player.breach_radius_level) * reputation_price_modifier(soul_keeper.reputation));
 }
 increase_breach_radius_option.onclick = () => {
     pay_souls(price_radius());
@@ -197,9 +225,9 @@ increase_breach_radius_option.onclick = () => {
     update_divs();
 };
 function price_waves() {
-    return UPGRADE_BREACH_WAVES.base_price_souls
+    return Math.floor((UPGRADE_BREACH_WAVES.base_price_souls
         + UPGRADE_BREACH_WAVES.price_increase_per_level
-            * player.breach_waves;
+            * player.breach_waves) * reputation_price_modifier(soul_keeper.reputation));
 }
 increase_breach_waves_option.onclick = () => {
     pay_souls(price_waves());
@@ -207,7 +235,9 @@ increase_breach_waves_option.onclick = () => {
     update_divs();
 };
 function souls_tier_price() {
-    return UPGRADE_QUALITY_OF_SOULS.base_price_souls + player.souls_quality * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level;
+    return Math.floor((UPGRADE_QUALITY_OF_SOULS.base_price_souls
+        + player.souls_quality
+            * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level) * reputation_price_modifier(soul_keeper.reputation));
 }
 breach_tier_button.onclick = () => {
     pay_souls(souls_tier_price());
@@ -255,30 +285,32 @@ function update_npcs() {
     focused_npc = target_npc;
     switch (target_npc?.core) {
         case NPC_CORE.SOUL_KEEPER: {
-            npc_name.innerHTML = "Soul Keeper";
+            npc_name.innerHTML = `Soul Keeper \n Reputation: ${reputation_word(soul_keeper.reputation)}(${soul_keeper.reputation})`;
             npc_response.innerHTML = "Welcome to my shop.";
             npc_options.innerHTML = "";
             npc_options.appendChild(increase_breach_radius_option);
             npc_options.appendChild(increase_breach_waves_option);
+            if (quests_stage[QUEST.BRING_SOULS] == QUEST_STAGE.AVAILABLE) {
+                npc_options.appendChild(accept_quest_soul_loan_limit_button);
+            }
             break;
         }
     }
 }
-const quests_stage = {};
-function get_quests_of_soul_keeper() {
-    return [QUEST.BRING_SOULS];
-}
-function quest_bring_souls_activate() {
-    quests_stage[QUEST.BRING_SOULS] = QUEST_STAGE.ACTIVE;
-}
-function quest_bring_souls_condition() {
-    return (souls > 50000);
-}
-function quest_bring_souls_complete() {
-    soul_keeper.reputation += 500;
-    change_souls(-50000);
-    soul_keeper.souls += 50000;
-}
+const quests_stage = {
+    [QUEST.BRING_SOULS]: QUEST_STAGE.AVAILABLE
+};
+accept_quest_soul_loan_limit_button.onclick = () => {
+    if (souls < QUEST_BRING_SOULS_AMOUNT)
+        return;
+    focused_npc = null;
+    change_souls(-QUEST_BRING_SOULS_AMOUNT);
+    soul_keeper.souls += QUEST_BRING_SOULS_AMOUNT;
+    soul_keeper.reputation += QUEST_BRING_SOULS_REWARD_REPUTATION;
+    quests_stage[QUEST.BRING_SOULS] = QUEST_STAGE.COMPLETED;
+    loan_souls(0);
+    update_divs();
+};
 // function init_dungeon() {
 //     bg_texture = TEXTURE_INDEX.BG_DUNGEON
 //     let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME)
@@ -319,7 +351,14 @@ function update_cashback() {
     cashback_rate = 1 - Math.exp(-owed_souls / 1000000);
     cashback_counter.innerHTML = (Math.floor(cashback_rate * 10000) / 100).toString() + "%";
 }
-let loan_limit = 100000;
+let base_loan_limit = 100000;
+function loan_limit() {
+    let base = base_loan_limit;
+    if (quests_stage[QUEST.BRING_SOULS] == QUEST_STAGE.COMPLETED) {
+        base += QUEST_BRING_SOULS_REWARD_LOAN_LIMIT;
+    }
+    return base;
+}
 function pay_souls(s) {
     change_souls(cashback_rate * s - s);
     soul_counter.innerHTML = Math.floor(souls).toString();
@@ -327,7 +366,7 @@ function pay_souls(s) {
 function loan_souls(loan) {
     change_souls(loan);
     owed_souls += loan;
-    if (owed_souls > loan_limit) {
+    if (owed_souls > loan_limit()) {
         if (souls == 0) {
             alert("You have hit souls loan limit and you can't pay it back. You stop existing.");
             location.reload();
@@ -339,7 +378,7 @@ function loan_souls(loan) {
         }
     }
     update_cashback();
-    loan_counter.innerHTML = Math.floor(owed_souls).toString() + "/" + loan_limit;
+    loan_counter.innerHTML = Math.floor(owed_souls).toString() + "/" + loan_limit();
     loan_payment_counter.innerHTML = loan_payment().toString();
 }
 function loan_payment() {
@@ -350,12 +389,12 @@ function update_loan_payment() {
 }
 let loan_button = document.getElementById("take-loan");
 loan_button.onclick = () => {
-    loan_souls(500);
+    loan_souls(5000);
 };
 let pay_loan_button = document.getElementById("pay-loan");
 pay_loan_button.onclick = () => {
-    if (souls > 500)
-        loan_souls(-500);
+    if (souls > 5000)
+        loan_souls(-5000);
 };
 function aura_range() {
     return player.aura_range * (1 + Math.sqrt(rampage));
@@ -708,7 +747,7 @@ function open_breach(item) {
 function open_breaches() {
     let b = player_object;
     let chunk_coord = get_chunk(world_description, player_object.x, player_object.y);
-    let radius = BREACH_ACTIVATION_RADIUS_PER_LEVEL * player.breach_radius_level;
+    let radius = BREACH_ACTIVATION_RADIUS_PER_LEVEL * (player.breach_radius_level + 1) + 20;
     for_chunks_in_radius(world, world_description, radius * 1.5 + 20, chunk_coord[0], chunk_coord[1], (chunk) => {
         for (let item of chunk.breaches) {
             if (item.radius > 0)

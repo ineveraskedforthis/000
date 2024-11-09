@@ -195,9 +195,29 @@ const REPUTATION_THRESHOLD = {
     RECOGNISED: 10000
 }
 
+function reputation_word(x: number) {
+    if (x < REPUTATION_THRESHOLD.HATEFUL) {
+        return "Hated"
+    }
+    if (x < REPUTATION_THRESHOLD.OPPOSED) {
+        return "Opposed"
+    }
+    if (x < REPUTATION_THRESHOLD.COLD) {
+        return "Cold"
+    }
+    if (x < REPUTATION_THRESHOLD.NEUTRAL) {
+        return "Neutral"
+    }
+    if (x < REPUTATION_THRESHOLD.RECOGNISED) {
+        return "Recognised"
+    }
+
+    return "Guest"
+}
+
 const soul_keeper: NPC = {
     souls: 1000,
-    reputation: 0,
+    reputation: -100,
     x: world_true_size / 2 + 500, y: world_true_size / 2 + 500,
     w: 20, h: 50,
     texture: TEXTURE_INDEX.NPC_1,
@@ -222,6 +242,10 @@ const UPGRADE_QUALITY_OF_SOULS: Upgrade = {
     price_increase_per_level: 100000,
 }
 
+function reputation_price_modifier(reputation: number) {
+    return 0.5 + 2500 / (5000 + reputation)
+}
+
 const npcs = [soul_keeper]
 
 let focused_npc: NPC|null = null;
@@ -234,11 +258,20 @@ const npc_response = document.getElementById("npc-response")! as HTMLDivElement
 const increase_breach_radius_option = document.createElement("div");
 const increase_breach_waves_option = document.createElement("div");
 const breach_tier_button = document.createElement("div")
+const accept_quest_soul_loan_limit_button = document.createElement("div")
+
+const QUEST_BRING_SOULS_AMOUNT = 50000
+const QUEST_BRING_SOULS_REWARD_LOAN_LIMIT = 200000
+const QUEST_BRING_SOULS_REWARD_REPUTATION = 100
+
+accept_quest_soul_loan_limit_button.innerText = `Quest: bring ${Math.floor(QUEST_BRING_SOULS_AMOUNT + 0.5)} souls.
+    Reward: Loan limit is increased by${QUEST_BRING_SOULS_REWARD_LOAN_LIMIT}.
+    Reputation with Soul Keeper is increased by ${QUEST_BRING_SOULS_REWARD_REPUTATION}`
 
 function price_radius() {
-    return UPGRADE_BREACH_DETECTION.base_price_souls
+    return Math.floor((UPGRADE_BREACH_DETECTION.base_price_souls
         + UPGRADE_BREACH_DETECTION.price_increase_per_level
-        * player.breach_radius_level
+        * player.breach_radius_level) * reputation_price_modifier(soul_keeper.reputation))
 }
 
 increase_breach_radius_option.onclick = () => {
@@ -248,9 +281,9 @@ increase_breach_radius_option.onclick = () => {
 }
 
 function price_waves() {
-    return UPGRADE_BREACH_WAVES.base_price_souls
+    return Math.floor((UPGRADE_BREACH_WAVES.base_price_souls
         + UPGRADE_BREACH_WAVES.price_increase_per_level
-        * player.breach_waves
+        * player.breach_waves) * reputation_price_modifier(soul_keeper.reputation))
 }
 
 increase_breach_waves_option.onclick = () => {
@@ -260,7 +293,9 @@ increase_breach_waves_option.onclick = () => {
 }
 
 function souls_tier_price() {
-    return UPGRADE_QUALITY_OF_SOULS.base_price_souls + player.souls_quality * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level
+    return Math.floor((UPGRADE_QUALITY_OF_SOULS.base_price_souls
+    + player.souls_quality
+    * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level) * reputation_price_modifier(soul_keeper.reputation))
 }
 
 breach_tier_button.onclick = () => {
@@ -325,34 +360,36 @@ function update_npcs() {
 
     switch(target_npc?.core) {
         case NPC_CORE.SOUL_KEEPER: {
-            npc_name.innerHTML = "Soul Keeper"
+            npc_name.innerHTML = `Soul Keeper \n Reputation: ${reputation_word(soul_keeper.reputation)}(${soul_keeper.reputation})`
             npc_response.innerHTML = "Welcome to my shop."
             npc_options.innerHTML = ""
             npc_options.appendChild(increase_breach_radius_option)
             npc_options.appendChild(increase_breach_waves_option)
+            if (quests_stage[QUEST.BRING_SOULS] == QUEST_STAGE.AVAILABLE) {
+                npc_options.appendChild(accept_quest_soul_loan_limit_button)
+            }
             break
         }
     }
 }
 
-const quests_stage = {}
-
-function get_quests_of_soul_keeper() {
-    return [QUEST.BRING_SOULS]
+const quests_stage = {
+    [QUEST.BRING_SOULS]: QUEST_STAGE.AVAILABLE
 }
 
-function quest_bring_souls_activate() {
-    quests_stage[QUEST.BRING_SOULS] = QUEST_STAGE.ACTIVE
-}
+accept_quest_soul_loan_limit_button.onclick = () => {
+    if (souls < QUEST_BRING_SOULS_AMOUNT) return;
 
-function quest_bring_souls_condition() {
-    return (souls > 50000)
-}
+    focused_npc = null
+    change_souls(-QUEST_BRING_SOULS_AMOUNT)
+    soul_keeper.souls += QUEST_BRING_SOULS_AMOUNT
 
-function quest_bring_souls_complete() {
-    soul_keeper.reputation += 500
-    change_souls(-50000)
-    soul_keeper.souls += 50000
+    soul_keeper.reputation += QUEST_BRING_SOULS_REWARD_REPUTATION
+
+    quests_stage[QUEST.BRING_SOULS] = QUEST_STAGE.COMPLETED
+
+    loan_souls(0)
+    update_divs()
 }
 
 // function init_dungeon() {
@@ -406,7 +443,17 @@ function update_cashback() {
     cashback_counter.innerHTML = (Math.floor(cashback_rate * 10000) / 100).toString() + "%"
 }
 
-let loan_limit = 100000
+let base_loan_limit = 100000
+
+function loan_limit() {
+    let base = base_loan_limit
+
+    if (quests_stage[QUEST.BRING_SOULS] == QUEST_STAGE.COMPLETED) {
+        base += QUEST_BRING_SOULS_REWARD_LOAN_LIMIT
+    }
+
+    return base;
+}
 
 function pay_souls(s) {
     change_souls(cashback_rate * s - s)
@@ -417,7 +464,7 @@ function loan_souls(loan: number) {
     change_souls(loan)
     owed_souls += loan
 
-    if (owed_souls > loan_limit) {
+    if (owed_souls > loan_limit()) {
         if (souls == 0) {
             alert("You have hit souls loan limit and you can't pay it back. You stop existing.")
             location.reload()
@@ -429,7 +476,7 @@ function loan_souls(loan: number) {
     }
 
     update_cashback()
-    loan_counter.innerHTML = Math.floor(owed_souls).toString() + "/" + loan_limit
+    loan_counter.innerHTML = Math.floor(owed_souls).toString() + "/" + loan_limit()
     loan_payment_counter.innerHTML = loan_payment().toString()
 }
 
@@ -443,13 +490,13 @@ function update_loan_payment() {
 
 let loan_button  = document.getElementById("take-loan")! as HTMLButtonElement
 loan_button.onclick = () => {
-    loan_souls(500)
+    loan_souls(5000)
 }
 
 let pay_loan_button  = document.getElementById("pay-loan")! as HTMLButtonElement
 pay_loan_button.onclick = () => {
-    if (souls > 500)
-        loan_souls(-500)
+    if (souls > 5000)
+        loan_souls(-5000)
 }
 
 

@@ -24,8 +24,7 @@ export enum BIOME {
 
 export enum QUEST_STAGE {
     AVAILABLE = 1,
-    ACTIVE = 2,
-    COMPLETED = 3,
+    COMPLETED = 2,
 }
 
 export enum QUEST {
