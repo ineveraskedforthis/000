@@ -2,12 +2,14 @@
 
 import { initBuffers } from "./init_buffers.js";
 import { drawScene } from "./draw.js";
-import { Breach, ChunkData, ControlState, Creation, DungeonMaster, Explosion, GameObject, GameObjectReference, Mage, NPC, ResetArea, Spell, WorldDescription } from "./types.js";
+import { Breach, ChunkData, ControlState, Creation, DungeonMaster, Explosion, GameObject, GameObjectReference, Mage, NPC, ResetArea, Spell, Upgrade, WorldDescription } from "./types.js";
 import { loadTexture } from "./texture.js";
-import { BIOME, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
+import { BIOME, NPC_CORE, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
 import { coord_to_index, for_chunks_in_radius, g_uid, get_chunk, get_chunk_index, get_object } from "./world.js";
 
 const BREACH_SIZE = 50
+
+const BREACH_ACTIVATION_RADIUS_PER_LEVEL = 25
 
 const player: Mage = {
     spell_chain: 20,
@@ -28,7 +30,7 @@ const player: Mage = {
         x: 0, y: 0, w: 5, h: 20, texture_id: 10, dx: 0, dy: 0, hidden: false
     },
 
-    breach_radius: 50,
+    breach_radius_level: 1,
     breach_waves: 1,
 
     souls_quality: 1,
@@ -196,7 +198,141 @@ const REPUTATION_THRESHOLD = {
 const soul_keeper: NPC = {
     souls: 1000,
     reputation: 0,
-    x: 500, y: 500
+    x: world_true_size / 2 + 500, y: world_true_size / 2 + 500,
+    w: 20, h: 50,
+    texture: TEXTURE_INDEX.NPC_1,
+    core: NPC_CORE.SOUL_KEEPER
+}
+
+const UPGRADE_BREACH_DETECTION: Upgrade = {
+    base_price_cores: 0,
+    base_price_souls: 1000,
+    price_increase_per_level: 500,
+}
+
+const UPGRADE_BREACH_WAVES: Upgrade = {
+    base_price_cores: 0,
+    base_price_souls: 10000,
+    price_increase_per_level: 10000,
+}
+
+const UPGRADE_QUALITY_OF_SOULS: Upgrade = {
+    base_price_cores: 1,
+    base_price_souls: 0,
+    price_increase_per_level: 100000,
+}
+
+const npcs = [soul_keeper]
+
+let focused_npc: NPC|null = null;
+
+const npc_portrait = document.getElementById("npc-image")! as HTMLDivElement
+const npc_name = document.getElementById("npc-name")! as HTMLDivElement
+const npc_options = document.getElementById("npc-options")! as HTMLDivElement
+const npc_response = document.getElementById("npc-response")! as HTMLDivElement
+
+const increase_breach_radius_option = document.createElement("div");
+const increase_breach_waves_option = document.createElement("div");
+const breach_tier_button = document.createElement("div")
+
+function price_radius() {
+    return UPGRADE_BREACH_DETECTION.base_price_souls
+        + UPGRADE_BREACH_DETECTION.price_increase_per_level
+        * player.breach_radius_level
+}
+
+increase_breach_radius_option.onclick = () => {
+    pay_souls(price_radius())
+    player.breach_radius_level += 1
+    update_divs()
+}
+
+function price_waves() {
+    return UPGRADE_BREACH_WAVES.base_price_souls
+        + UPGRADE_BREACH_WAVES.price_increase_per_level
+        * player.breach_waves
+}
+
+increase_breach_waves_option.onclick = () => {
+    pay_souls(price_waves())
+    player.breach_waves += 1
+    update_divs()
+}
+
+function souls_tier_price() {
+    return UPGRADE_QUALITY_OF_SOULS.base_price_souls + player.souls_quality * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level
+}
+
+breach_tier_button.onclick = () => {
+    pay_souls(souls_tier_price())
+    player.souls_quality += 1
+    update_divs()
+}
+
+
+function update_divs() {
+    increase_breach_radius_option.innerText = `Pay ${price_radius()} tamed souls to increase soul breach activation radius.`
+    increase_breach_waves_option.innerText = `Pay ${price_waves()} tamed souls to increase amount of wild souls trying to escape.`
+    breach_tier_button.innerText = `Pay ${souls_tier_price()} souls and ${UPGRADE_QUALITY_OF_SOULS.base_price_cores} core to increase quality of local wild souls.`
+}
+
+update_divs()
+
+const dialog_div = document.getElementById("npc-dialog")! as HTMLDivElement;
+
+function hide_npc_window() {
+    dialog_div.style.visibility = "hidden"
+}
+
+function show_npc_window() {
+    dialog_div.style.visibility = "visible"
+}
+
+function update_npcs() {
+    let target_npc: NPC|null = null
+    let distance = world_true_size
+
+    for (let item of npcs) {
+        let dx = item.x - player_object.x
+        let dy = item.y - player_object.y
+
+        if (Math.sqrt(dx * dx + dy * dy) < world_true_size) {
+            target_npc = item
+            distance = Math.sqrt(dx * dx + dy * dy)
+        }
+    }
+
+    if (distance > 100) {
+        focused_npc = null
+        hide_npc_window()
+        return
+    }
+
+    if (target_npc == null) {
+        focused_npc = null
+        hide_npc_window()
+        return
+    }
+
+
+    if (focused_npc == target_npc) {
+        return;
+    }
+
+    show_npc_window()
+    focused_npc = target_npc
+
+
+    switch(target_npc?.core) {
+        case NPC_CORE.SOUL_KEEPER: {
+            npc_name.innerHTML = "Soul Keeper"
+            npc_response.innerHTML = "Welcome to my shop."
+            npc_options.innerHTML = ""
+            npc_options.appendChild(increase_breach_radius_option)
+            npc_options.appendChild(increase_breach_waves_option)
+            break
+        }
+    }
 }
 
 const quests_stage = {}
@@ -328,30 +464,35 @@ let aura_range_button  = document.getElementById("improve-aura-range")! as HTMLB
 aura_range_button.onclick = () => {
     pay_souls(1000)
     player.aura_range += 1
+    update_divs()
 }
 let aura_damage_button  = document.getElementById("improve-aura-damage")! as HTMLButtonElement
 
 aura_damage_button.onclick = () => {
     pay_souls(1000)
     player.aura_damage += 5
+    update_divs()
 }
 
 let spell_chain_button  = document.getElementById("improve-spell-chain")! as HTMLButtonElement
 spell_chain_button.onclick = () => {
     pay_souls(1000)
     player.spell_chain += 2
+    update_divs()
 }
 let spell_damage_button  = document.getElementById("improve-spell-damage")! as HTMLButtonElement
 
 spell_damage_button.onclick = () => {
     pay_souls(1000)
     player.spell_damage += 10
+    update_divs()
 }
 
 let blink_damage_button  = document.getElementById("improve-blink-damage")! as HTMLButtonElement
 blink_damage_button.onclick = () => {
     pay_souls(10000)
     player.blink_explosion_damage += 500
+    update_divs()
 }
 
 
@@ -359,26 +500,8 @@ let blink_radius_button  = document.getElementById("improve-blink-radius")! as H
 blink_radius_button.onclick = () => {
     pay_souls(10000)
     player.blink_explosion_radius += 10
+    update_divs()
 }
-
-let breach_radius_button = document.getElementById("increase-breach-radius")! as HTMLButtonElement
-breach_radius_button.onclick = () => {
-    pay_souls(3000)
-    player.breach_radius += 25
-}
-
-let breach_waves_button = document.getElementById("increase-breach-waves")! as HTMLButtonElement
-breach_waves_button.onclick = () => {
-    pay_souls(3000)
-    player.breach_waves += 1
-}
-
-let breach_tier_button = document.getElementById("increase-souls-quality")! as HTMLButtonElement
-breach_tier_button.onclick = () => {
-    pay_souls(5000)
-    player.souls_quality += 1
-}
-
 
 function new_object(wd: WorldDescription, x:number, y:number, w:number, h:number, texture: TEXTURE_INDEX): GameObjectReference {
     let chunk = get_chunk_index(wd, x, y)
@@ -642,6 +765,8 @@ function clear_explosions() {
 }
 
 function update_game_state(timer) {
+    update_npcs()
+
     update_boss(timer)
 
     open_breaches();
@@ -705,7 +830,7 @@ function update_game_state(timer) {
 }
 
 function breach_cost() {
-    return 1000 * player.breach_waves + player.breach_radius
+    return 1000 * Math.sqrt(player.breach_waves) + player.breach_radius_level * 200
 }
 
 
@@ -736,11 +861,14 @@ function open_breach(item: Breach) {
 function open_breaches() {
     let b = player_object
     let chunk_coord = get_chunk(world_description, player_object.x, player_object.y)
-    for_chunks_in_radius(world, world_description, player.breach_radius * 2 + 20, chunk_coord[0], chunk_coord[1], (chunk) => {
+
+    let radius = BREACH_ACTIVATION_RADIUS_PER_LEVEL * (player.breach_radius_level + 1) + 20
+
+    for_chunks_in_radius(world, world_description, radius * 1.5 + 20, chunk_coord[0], chunk_coord[1], (chunk) => {
         for (let item of chunk.breaches) {
             if (item.radius > 0) continue;
             let a = get_object(world, item.index)
-            if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < player.breach_radius * player.breach_radius) {
+            if ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) < radius * radius) {
                 open_breach(item)
             }
         }
@@ -1109,6 +1237,8 @@ function main() {
     textures[TEXTURE_INDEX.BOSS_DUNGEON_BODY] = loadTexture(gl, "boss-1.svg")
     textures[TEXTURE_INDEX.BOSS_DUNGEON_FLAME] = loadTexture(gl, "boss-1-flame.svg")
 
+    textures[TEXTURE_INDEX.NPC_1] = loadTexture(gl, "quest-giver.svg")
+
     let t = 0
     let current_season = 0
 
@@ -1253,8 +1383,8 @@ function main() {
 
         drawScene(
             gl, programInfo, programAuraInfo, buffers,
-            world_description, world, explosions, bosses, player, aura_range(),
-            camera_x, camera_y, t,
+            world_description, world, explosions, bosses, player, npcs,
+            aura_range(), camera_x, camera_y, t,
             1 + Math.min(200, 0.01 * rampage) * 2 + Math.sqrt(Math.min(20, 0.01 * rampage)) * Math.sin(t / 10000) * 0.01,
             textures
         )

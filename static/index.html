@@ -17,7 +17,7 @@
 
 <body class="">
   <div class="game-frame relative w-[1100px] h-[720px]">
-    <div class="relative select-none">
+    <div class="relative select-none w-[1100px] h-[720px]">
       <canvas class="" id="main-canvas" width="1100" height="720"></canvas>
       <div class="absolute top-0 left-0 p-2">
         <div class="mb-2 bg-black text-white p-2 rounded-lg bg-opacity-50">
@@ -37,7 +37,7 @@
               <button id="pay-loan" class="hover:bg-white hover:text-black">Pay back loan (500)</button>
               <button id="toggleModal" class="px-3 py-1 bg-blue-500 text-white rounded">?</button>
               <button id="toggleShopModal" class="px-3 py-1 bg-blue-500 text-white rounded">$</button>
-              <button id="toggleZoneModal" class="px-3 py-1 bg-blue-500 text-white rounded ">t</button>
+              <!-- <button id="toggleZoneModal" class="px-3 py-1 bg-blue-500 text-white rounded ">t</button> -->
 
             </div>
           </div>
@@ -73,12 +73,12 @@
             <button id="improve-blink-damage" class="mt-2 hover:bg-white hover:text-black">Explosion damage</button>
 
             <br>
-
+<!--
             <button id="increase-breach-radius" class="mt-2 hover:bg-white hover:text-black">Souls activation radius</button>
 
             <button id="increase-breach-waves" class="mt-2 hover:bg-white hover:text-black">Souls activation waves</button>
 
-            <button id="increase-souls-quality" class="mt-2 hover:bg-white hover:text-black">Souls quality</button>
+            <button id="increase-souls-quality" class="mt-2 hover:bg-white hover:text-black">Souls quality</button> -->
 
           </div>
         </div>
@@ -93,8 +93,32 @@
           </div>
         </div>
 
-
       </div>
+      <div id="npc-dialog" class="w-full h-full font-press-start text-white absolute bg-black border-2 rounded-lg bg-opacity-50 items-center justify-center top-0">
+
+        <div id="npc-image" class="absolute w-52 h-52 bg-black left-10 top-10 bg-soul-keeper-portrait bg-contain">
+        </div>
+
+        <div id="player-image" class="absolute w-52 h-52 bg-black right-10 top-10 bg-main-character-1-portrait bg-contain">
+        </div>
+
+        <div id="npc-name" class="absolute w-52 h-10 bg-black left-10 top-64">
+          Name
+        </div>
+
+        <div id="player-name" class="absolute w-52 h-10 bg-black right-10 top-64">
+          You
+        </div>
+
+        <div id="npc-options" class="*:mt-2 *:bg-black hover:*:bg-white hover:*:text-black *:border-2 absolute left-1/3 w-1/3">
+          Options
+        </div>
+
+        <div id="npc-response" class= "absolute left-1/3 w-1/3 bottom-1/4 border-2 text-center">
+          Response
+        </div>
+      </div>
+
 
 
       <!-- Keys -->
@@ -185,35 +209,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Настройка модальных окон
     setupModal('toggleModal', 'modal'); // Loan contract modal
     setupModal('toggleShopModal', 'shopModal'); // Shop modal
-    setupModal('toggleZoneModal', 'zone'); // Zone modal
 });
 </script>
 
 <script>
     const elements = {
-        'KeyQ': document.getElementById('Q'), // Код клавиши для "Q"
-        'Space': document.getElementById('SPACE'), // Код клавиши для "BACKSPACE"
-        'KeyE': document.getElementById('E'), // Код клавиши для "E"
-        'KeyR': document.getElementById('R'), // Код клавиши для "R"
+        'KeyQ': document.getElementById('Q'),
+        'Space': document.getElementById('SPACE'),
+        'KeyE': document.getElementById('E'),
+        'KeyR': document.getElementById('R'),
     };
 
     document.addEventListener('keydown', function(event) {
-        const key = event.code; // Используем event.code для получения кода клавиши
+        const key = event.code;
         if (elements[key]) {
-            elements[key].classList.add('bg-white'); // Меняем цвет фона на белый
-            elements[key].classList.remove('text-black'); // Меняем цвет текста на черный
+            elements[key].classList.add('bg-white');
+            elements[key].classList.remove('text-black');
         }
     });
 
     document.addEventListener('keyup', function(event) {
-        const key = event.code; // Используем event.code для получения кода клавиши
+        const key = event.code;
         if (elements[key]) {
-            elements[key].classList.remove('bg-white'); // Возвращаем цвет фона
-            elements[key].classList.add('bg-black'); // Возвращаем цвет фона
-            elements[key].classList.add('text-white'); // Возвращаем цвет текста
+            elements[key].classList.remove('bg-white');
+            elements[key].classList.add('bg-black');
+            elements[key].classList.add('text-white');
         }
     });
 </script>

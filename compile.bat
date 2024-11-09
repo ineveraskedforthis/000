@@ -1,1 +1,1 @@
-tsc src/main.ts src/draw.ts src/init_buffers.ts --target ES2022 --lib ES2022,dom --outDir "js"
+tsc src/main.ts src/draw.ts src/init_buffers.ts --target ES2022 --lib ES2022,dom --outDir "js" & npx tailwindcss build -i css/main.css -o css/output.css

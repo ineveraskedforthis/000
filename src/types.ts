@@ -1,4 +1,4 @@
-import { BIOME } from "./enums.js"
+import { BIOME, NPC_CORE, TEXTURE_INDEX } from "./enums.js"
 
 export interface Mage {
     spell_chain: number,
@@ -17,7 +17,7 @@ export interface Mage {
     object: GameObject,
     cast_speed: number,
 
-    breach_radius: number
+    breach_radius_level: number
     breach_waves: number
 
     souls_quality: number
@@ -30,7 +30,16 @@ export interface UIDEnrichedObject {
 export interface NPC {
     reputation: number,
     souls: number,
-    x: number, y: number
+    x: number, y: number,
+    w: number, h: number,
+    texture: TEXTURE_INDEX,
+    core: NPC_CORE,
+}
+
+export interface Upgrade {
+    base_price_souls: number,
+    base_price_cores: number,
+    price_increase_per_level: number,
 }
 
 export interface ResetArea {

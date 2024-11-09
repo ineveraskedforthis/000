@@ -8,7 +8,13 @@ export enum TEXTURE_INDEX {
     BOSS_DUNGEON_BODY = 2001,
     BOSS_DUNGEON_FLAME = 2002,
 
-    BASIC_SPELL = 12
+    BASIC_SPELL = 12,
+
+    NPC_1 = 3001
+}
+
+export enum NPC_CORE {
+    SOUL_KEEPER = 1,
 }
 
 export enum BIOME {

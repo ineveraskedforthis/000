@@ -1,5 +1,5 @@
 import { BIOME, TEXTURE_INDEX } from "./enums.js";
-import { ChunkData, Creation, DungeonMaster, Explosion, GameObject, Mage, WorldDescription } from "./types.js";
+import { ChunkData, Creation, DungeonMaster, Explosion, GameObject, Mage, NPC, WorldDescription } from "./types.js";
 import { coord_to_index, for_chunks_in_radius, get_chunk, get_chunk_index, get_object } from "./world.js";
 
 export function drawScene(
@@ -10,7 +10,9 @@ export function drawScene(
     desc:WorldDescription, world: ChunkData[],
     explosions: Explosion[],
     bosses: DungeonMaster[],
-    player: Mage, player_aura_range: number,
+    player: Mage,
+    npcs: NPC[],
+    player_aura_range: number,
     camera_x: number,
     camera_y: number,
     time: number,
@@ -242,6 +244,18 @@ export function drawScene(
             gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
         }
     })
+
+    for (const item of npcs) {
+        const vertexCount = 4;
+        const offset = 0;
+
+        gl.bindTexture(gl.TEXTURE_2D, textures[item.texture])
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h);
+        gl.uniform2f(programInfo.uniformLocations.position, item.x, item.y + item.h);
+        gl.uniform2f(programInfo.uniformLocations.size, item.w, item.h);
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
 }
 
     // Tell WebGL how to pull out the positions from the position

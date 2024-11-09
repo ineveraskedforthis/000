@@ -1,6 +1,6 @@
 import { BIOME, TEXTURE_INDEX } from "./enums.js";
 import { coord_to_index, for_chunks_in_radius, get_chunk, get_object } from "./world.js";
-export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world, explosions, bosses, player, player_aura_range, camera_x, camera_y, time, zoom_mod, textures) {
+export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world, explosions, bosses, player, npcs, player_aura_range, camera_x, camera_y, time, zoom_mod, textures) {
     if (gl == null)
         return;
     let canvas = gl.canvas;
@@ -168,6 +168,16 @@ export function drawScene(gl, programInfo, programAuraInfo, buffers, desc, world
             gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
         }
     });
+    for (const item of npcs) {
+        const vertexCount = 4;
+        const offset = 0;
+        gl.bindTexture(gl.TEXTURE_2D, textures[item.texture]);
+        // gl.uniform2f(programInfo.uniformLocations.position, object.x + object.w + 20, object.y);
+        // gl.uniform2f(programInfo.uniformLocations.size, 2, object.h);
+        gl.uniform2f(programInfo.uniformLocations.position, item.x, item.y + item.h);
+        gl.uniform2f(programInfo.uniformLocations.size, item.w, item.h);
+        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    }
 }
 // Tell WebGL how to pull out the positions from the position
 // buffer into the vertexPosition attribute.
