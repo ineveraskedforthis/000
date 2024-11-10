@@ -21,6 +21,15 @@ export function g_uid(w: WorldDescription) {
     return w.unused_uid
 }
 
+export function wcoord_is_valid(w:WorldDescription, x: number, y: number) {
+    if (x <= 0) return false
+    if (y <= 0) return false
+    if (x >= w.chunk_size * w.size_in_chunks) return false
+    if (y >= w.chunk_size * w.size_in_chunks) return false
+
+    return true
+}
+
 export function for_chunks_in_radius(
     world: ChunkData[], desc: WorldDescription,
     radius: number, center_x: number, center_y: number,

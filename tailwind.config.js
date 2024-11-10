@@ -13,7 +13,7 @@ module.exports = {
     extend: {
       backgroundImage: {
         'main-character-1-portrait': "url('../portrait-1.png')",
-        'soul-keeper-portrait': "url('../portrait-2.png')",
+        // 'soul-keeper-portrait': "url('../portrait-2.png')",
       }
     }
   }

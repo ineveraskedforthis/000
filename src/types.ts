@@ -1,4 +1,4 @@
-import { BIOME, NPC_CORE, TEXTURE_INDEX } from "./enums.js"
+import { BIOME, ENEMY_SPELL, NPC_CORE, TEXTURE_INDEX } from "./enums.js"
 
 export interface Mage {
     spell_chain: number,
@@ -72,15 +72,17 @@ export interface ControlState {
 export interface Creation extends UIDEnrichedObject {
     hp: number
     max_hp: number
-
     index: GameObjectReference
     dead: boolean
     target_x: number
     target_y: number
-
     speed: number
-
     destroy_on_reaching_target: boolean
+
+    souls: number
+    cores: number
+
+    spell: ENEMY_SPELL
 }
 
 export interface Spell extends UIDEnrichedObject {

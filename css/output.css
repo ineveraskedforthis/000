@@ -752,10 +752,6 @@ video {
   background-image: url('../portrait-1.png');
 }
 
-.bg-soul-keeper-portrait {
-  background-image: url('../portrait-2.png');
-}
-
 .bg-contain {
   background-size: contain;
 }

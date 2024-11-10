@@ -1,8 +1,8 @@
 import { initBuffers } from "./init_buffers.js";
 import { drawScene } from "./draw.js";
 import { loadTexture } from "./texture.js";
-import { BIOME, NPC_CORE, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
-import { for_chunks_in_radius, g_uid, get_chunk, get_chunk_index, get_object } from "./world.js";
+import { BIOME, ENEMY_SPELL, NPC_CORE, QUEST, QUEST_STAGE, TEXTURE_INDEX } from "./enums.js";
+import { for_chunks_in_radius, g_uid, get_chunk, get_chunk_index, get_object, wcoord_is_valid } from "./world.js";
 const BREACH_SIZE = 50;
 const BREACH_ACTIVATION_RADIUS_PER_LEVEL = 25;
 const player = {
@@ -100,7 +100,6 @@ function generate_world(world_description) {
             biome: BIOME.SOULS_PLANES
         },
     ];
-    let dungeon_biome = [world_description.size_in_chunks / 2, world_description.size_in_chunks / 2];
     for (let i = 0; i < world_description.size_in_chunks; i++) {
         for (let j = 0; j < world_description.size_in_chunks; j++) {
             world[i * world_description.size_in_chunks + j] = {
@@ -126,6 +125,35 @@ function generate_world(world_description) {
     }
     for (let i = 0; i < 100000; i++) {
         new_breach(world_description, world_true_size * Math.random(), world_true_size * Math.random());
+    }
+    let lairs_of_soulfires = [];
+    for (let i = 0; i < 100; i++) {
+        lairs_of_soulfires.push({
+            x: Math.random() * world_true_size,
+            y: Math.random() * world_true_size
+        });
+    }
+    for (let lair of lairs_of_soulfires) {
+        for (let i = 0; i < 500; i++) {
+            let phi = Math.random() * Math.PI * 2;
+            let r = Math.random() * Math.random() * 10000;
+            let x = lair.x + Math.cos(phi) * r;
+            let y = lair.y + Math.sin(phi) * r;
+            if (!wcoord_is_valid(world_description, x, y))
+                continue;
+            let soulfire_ref = create_soulfire(x, y, 20, 50, x, y, 20);
+            world[soulfire_ref.chunk].enemies[soulfire_ref.index].destroy_on_reaching_target = false;
+        }
+    }
+    let bosses = [];
+    for (let i = 0; i < 50; i++) {
+        bosses.push({
+            x: Math.random() * world_true_size,
+            y: Math.random() * world_true_size
+        });
+    }
+    for (let lair of bosses) {
+        create_dungeon_master(lair.x, lair.y);
     }
 }
 let player_object = player.object;
@@ -180,6 +208,14 @@ const soul_keeper = {
     texture: TEXTURE_INDEX.NPC_1,
     core: NPC_CORE.SOUL_KEEPER
 };
+const eater = {
+    souls: 1000,
+    reputation: -100,
+    x: world_true_size / 2 - 500, y: world_true_size / 2 + 500,
+    w: 30, h: 45,
+    texture: TEXTURE_INDEX.NPC_2,
+    core: NPC_CORE.EATER
+};
 const UPGRADE_BREACH_DETECTION = {
     base_price_cores: 0,
     base_price_souls: 1000,
@@ -198,7 +234,7 @@ const UPGRADE_QUALITY_OF_SOULS = {
 function reputation_price_modifier(reputation) {
     return 0.5 + 2500 / (5000 + reputation);
 }
-const npcs = [soul_keeper];
+const npcs = [soul_keeper, eater];
 let focused_npc = null;
 const npc_portrait = document.getElementById("npc-image");
 const npc_name = document.getElementById("npc-name");
@@ -206,7 +242,7 @@ const npc_options = document.getElementById("npc-options");
 const npc_response = document.getElementById("npc-response");
 const increase_breach_radius_option = document.createElement("div");
 const increase_breach_waves_option = document.createElement("div");
-const breach_tier_button = document.createElement("div");
+const increase_soul_quality_button = document.createElement("div");
 const accept_quest_soul_loan_limit_button = document.createElement("div");
 const QUEST_BRING_SOULS_AMOUNT = 50000;
 const QUEST_BRING_SOULS_REWARD_LOAN_LIMIT = 200000;
@@ -239,15 +275,18 @@ function souls_tier_price() {
         + player.souls_quality
             * UPGRADE_QUALITY_OF_SOULS.price_increase_per_level) * reputation_price_modifier(soul_keeper.reputation));
 }
-breach_tier_button.onclick = () => {
+increase_soul_quality_button.onclick = () => {
+    if (cores < UPGRADE_QUALITY_OF_SOULS.base_price_cores)
+        return;
     pay_souls(souls_tier_price());
+    pay_cores(UPGRADE_QUALITY_OF_SOULS.base_price_cores);
     player.souls_quality += 1;
     update_divs();
 };
 function update_divs() {
     increase_breach_radius_option.innerText = `Pay ${price_radius()} tamed souls to increase soul breach activation radius.`;
     increase_breach_waves_option.innerText = `Pay ${price_waves()} tamed souls to increase amount of wild souls trying to escape.`;
-    breach_tier_button.innerText = `Pay ${souls_tier_price()} souls and ${UPGRADE_QUALITY_OF_SOULS.base_price_cores} core to increase quality of local wild souls.`;
+    increase_soul_quality_button.innerText = `Pay ${souls_tier_price()} souls and ${UPGRADE_QUALITY_OF_SOULS.base_price_cores} core to increase quality of local wild souls.`;
 }
 update_divs();
 const dialog_div = document.getElementById("npc-dialog");
@@ -263,7 +302,7 @@ function update_npcs() {
     for (let item of npcs) {
         let dx = item.x - player_object.x;
         let dy = item.y - player_object.y;
-        if (Math.sqrt(dx * dx + dy * dy) < world_true_size) {
+        if (Math.sqrt(dx * dx + dy * dy) < distance) {
             target_npc = item;
             distance = Math.sqrt(dx * dx + dy * dy);
         }
@@ -293,6 +332,15 @@ function update_npcs() {
             if (quests_stage[QUEST.BRING_SOULS] == QUEST_STAGE.AVAILABLE) {
                 npc_options.appendChild(accept_quest_soul_loan_limit_button);
             }
+            npc_portrait.style.backgroundImage = `url('/game000/portrait-2.png')`;
+            break;
+        }
+        case NPC_CORE.EATER: {
+            npc_name.innerHTML = `Eater \n Reputation: ${reputation_word(eater.reputation)}(${eater.reputation})`;
+            npc_response.innerHTML = "Welcome to me.";
+            npc_options.innerHTML = "";
+            npc_options.appendChild(increase_soul_quality_button);
+            npc_portrait.style.backgroundImage = `url('/game000/portrait-3.png')`;
             break;
         }
     }
@@ -311,32 +359,8 @@ accept_quest_soul_loan_limit_button.onclick = () => {
     loan_souls(0);
     update_divs();
 };
-// function init_dungeon() {
-//     bg_texture = TEXTURE_INDEX.BG_DUNGEON
-//     let flames = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME)
-//     let body = new_object(50, 50, 50, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY)
-//     let enemy_body : Creation = {
-//         hp: 1000000,
-//         max_hp: 1000000,
-//         index: body,
-//         dead: false,
-//         target_x: 50,
-//         target_y: 50,
-//         destroy_on_reaching_target: false,
-//         speed: 0
-//     }
-//     enemies.push(enemy_body)
-//     let master : DungeonMaster = {
-//         phase: 0,
-//         index_body: body,
-//         index_flame: flames,
-//         enemy: enemies.length - 1,
-//         adds: [],
-//         areas: []
-//     }
-//     bosses.push(master)
-// }
 let soul_counter = document.getElementById("souls-counter");
+let cores_counter = document.getElementById("cores-counter");
 let loan_counter = document.getElementById("loan-counter");
 let loan_payment_counter = document.getElementById("expected-loan-payment");
 let cashback_counter = document.getElementById("cashback");
@@ -362,6 +386,10 @@ function loan_limit() {
 function pay_souls(s) {
     change_souls(cashback_rate * s - s);
     soul_counter.innerHTML = Math.floor(souls).toString();
+}
+function pay_cores(s) {
+    cores -= s;
+    cores_counter.innerHTML = Math.floor(cores).toString();
 }
 function loan_souls(loan) {
     change_souls(loan);
@@ -460,7 +488,7 @@ function new_object(wd, x, y, w, h, texture) {
         index: world[chunk].game_objects.length - 1
     };
 }
-function create_enemy(x, y, w, h, target_x, target_y, speed) {
+function create_soul_lump(x, y, w, h, target_x, target_y, speed) {
     let ref = new_object(world_description, x, y, w, h, 1 + Math.floor(Math.random() * 6));
     world[ref.chunk].enemies.push({
         hp: 500,
@@ -471,24 +499,82 @@ function create_enemy(x, y, w, h, target_x, target_y, speed) {
         target_y: target_y,
         destroy_on_reaching_target: true,
         speed: speed,
-        uid: g_uid(world_description)
+        uid: g_uid(world_description),
+        spell: ENEMY_SPELL.NONE,
+        souls: 50,
+        cores: 0
     });
     return {
         chunk: ref.chunk,
         index: world[ref.chunk].enemies.length - 1
     };
 }
+function create_soulfire(x, y, w, h, target_x, target_y, speed) {
+    let ref = new_object(world_description, x, y, w, h, TEXTURE_INDEX.SOULFIRE);
+    world[ref.chunk].enemies.push({
+        hp: 50000,
+        max_hp: 50000,
+        index: ref,
+        dead: false,
+        target_x: target_x,
+        target_y: target_y,
+        destroy_on_reaching_target: true,
+        speed: speed,
+        uid: g_uid(world_description),
+        spell: ENEMY_SPELL.UNSOUL_RAY,
+        souls: 5000,
+        cores: 0
+    });
+    return {
+        chunk: ref.chunk,
+        index: world[ref.chunk].enemies.length - 1
+    };
+}
+function create_dungeon_master(x, y) {
+    let flames = new_object(world_description, x, y, 40, 150, TEXTURE_INDEX.BOSS_DUNGEON_FLAME);
+    let body = new_object(world_description, x, y, 40, 150, TEXTURE_INDEX.BOSS_DUNGEON_BODY);
+    let enemy_body = {
+        hp: 1000000,
+        max_hp: 1000000,
+        index: body,
+        dead: false,
+        target_x: x,
+        target_y: y,
+        destroy_on_reaching_target: false,
+        speed: 0,
+        souls: 5000,
+        cores: 1,
+        spell: ENEMY_SPELL.NONE,
+        uid: g_uid(world_description)
+    };
+    world[body.chunk].enemies.push(enemy_body);
+    let master = {
+        phase: 0,
+        index_body: body,
+        index_flame: flames,
+        enemy: {
+            index: world[body.chunk].enemies.length - 1,
+            chunk: body.chunk
+        },
+        adds: [],
+        areas: [],
+        uid: g_uid(world_description)
+    };
+    bosses.push(master);
+}
 function change_hp(creation, x) {
     creation.hp += x;
     if (creation.hp <= 0) {
         creation.dead = true;
         get_object(world, creation.index).hidden = true;
-        change_souls(30 * player.souls_quality);
+        change_souls(creation.souls * player.souls_quality);
+        cores += creation.cores;
         rampage += 1;
     }
 }
 loan_souls(10000);
 change_souls(-5000);
+pay_cores(0);
 function closest_enemy_to_point(x, y, ignored, max_radius) {
     let min_distance = max_radius;
     let closest = null;
@@ -513,7 +599,7 @@ function closest_enemy_to_point(x, y, ignored, max_radius) {
 function blink() {
     if (player.blink_cooldown > 0)
         return;
-    pay_souls(500);
+    pay_souls(5000);
     let closest = closest_enemy_to_point(player_object.x, player_object.y, [], 1000);
     if (closest == null)
         return;
@@ -606,12 +692,16 @@ function update_boss(timer) {
             continue;
         }
         while (item.adds.length < 30) {
-            let index = create_enemy(boss_object.x + 50, boss_object.y + 50, 20, 20, boss_object.x, boss_object.y, 3);
+            let x = boss_object.x + Math.random() * 50;
+            let y = boss_object.y + Math.random() * 50;
+            if (!wcoord_is_valid(world_description, x, y))
+                continue;
+            let index = create_soul_lump(boss_object.x + 50, boss_object.y + 50, 20, 20, boss_object.x, boss_object.y, 3);
             world[index.chunk].enemies[index.index].destroy_on_reaching_target = false;
             item.adds.push(index);
         }
         let to_remove = [];
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < item.adds.length; i++) {
             let ref = item.adds[i];
             let add = world[ref.chunk].enemies[ref.index];
             if (add == undefined || add.dead) {
@@ -644,8 +734,9 @@ function update_boss(timer) {
             }
         }
     }
-    if (reset_flag)
-        reset();
+    if (reset_flag) {
+        change_souls(-1000);
+    }
 }
 function clear_enemies(chunk) {
 }
@@ -732,15 +823,9 @@ function open_breach(item) {
             let r = radius - Math.random() * Math.random() * 50;
             let x = r * Math.cos(phi);
             let y = r * Math.sin(phi);
-            if (a.x + x <= 0)
+            if (!wcoord_is_valid(world_description, a.x + x, a.y + y))
                 continue;
-            if (a.y + y <= 0)
-                continue;
-            if (a.x + x >= world_true_size)
-                continue;
-            if (a.y + y >= world_true_size)
-                continue;
-            create_enemy(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20);
+            create_soul_lump(a.x + x, a.y + y, 10 + Math.random() * 10, 5 + Math.random() * 10, a.x, a.y, 0.20);
         }
     }
 }
@@ -1048,6 +1133,8 @@ function main() {
     textures[TEXTURE_INDEX.BOSS_DUNGEON_BODY] = loadTexture(gl, "boss-1.svg");
     textures[TEXTURE_INDEX.BOSS_DUNGEON_FLAME] = loadTexture(gl, "boss-1-flame.svg");
     textures[TEXTURE_INDEX.NPC_1] = loadTexture(gl, "quest-giver.svg");
+    textures[TEXTURE_INDEX.NPC_2] = loadTexture(gl, "npc-2.svg");
+    textures[TEXTURE_INDEX.SOULFIRE] = loadTexture(gl, "spirit.svg");
     let t = 0;
     let current_season = 0;
     let payment_timer = document.getElementById("time-until-payment");

@@ -14,6 +14,17 @@ export function g_uid(w) {
     w.unused_uid += 1;
     return w.unused_uid;
 }
+export function wcoord_is_valid(w, x, y) {
+    if (x <= 0)
+        return false;
+    if (y <= 0)
+        return false;
+    if (x >= w.chunk_size * w.size_in_chunks)
+        return false;
+    if (y >= w.chunk_size * w.size_in_chunks)
+        return false;
+    return true;
+}
 export function for_chunks_in_radius(world, desc, radius, center_x, center_y, action) {
     let int_radius = Math.floor(radius);
     for (let i = -int_radius; i <= int_radius; i++) {

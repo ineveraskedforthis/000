@@ -10,11 +10,15 @@ export enum TEXTURE_INDEX {
 
     BASIC_SPELL = 12,
 
-    NPC_1 = 3001
+    SOULFIRE = 501,
+
+    NPC_1 = 3001,
+    NPC_2 = 3002
 }
 
 export enum NPC_CORE {
     SOUL_KEEPER = 1,
+    EATER = 2
 }
 
 export enum BIOME {
@@ -29,4 +33,9 @@ export enum QUEST_STAGE {
 
 export enum QUEST {
     BRING_SOULS
+}
+
+export enum ENEMY_SPELL {
+    NONE = 1,
+    UNSOUL_RAY = 2,
 }
